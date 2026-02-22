@@ -4,6 +4,9 @@ import torch
 from torchvision.transforms import v2
 from PIL import Image
 import inspect
+import re
+
+USE_FP16=True
 
 
 if torch.cuda.is_available() == True:
@@ -11,27 +14,15 @@ if torch.cuda.is_available() == True:
 else:
     device="cpu"
     
-    
-processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50",device_map=device)
-model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-50")
+img = Image.open("data/test_img.png").convert("RGB")
 
+processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
+model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-50",device_map=device)
 
-raw_image=Image.open("data/test_img.png",mode='r').convert("RGB") #convert to PIL
+input=processor(images=img,return_tensors="pt",device=device) #torch.cuda.FloatTensor
 
-transforms=v2.Compose([
-    v2.ToImage(),
-    v2.Resize(size=(224,224)),
-    v2.ConvertImageDtype(torch.float64)
-    ]
-)
-
-processed_image=transforms(raw_image)
-
-print(type(processed_image))
-
-input=processor(images=processed_image,return_tensors="pt",device=device) #torch.cuda.FloatTensor
-
+model.eval()
 with torch.no_grad():
-    output=model(**input)
+    output=model(**input).logits
 
-print(output.__dict__)
+print(int(torch.cuda.memory_reserved())/10000000)
