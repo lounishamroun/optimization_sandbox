@@ -17,7 +17,7 @@ USE_FP16=True
 BATCH=30
 
 processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
-model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-50",device_map=device)
+model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-50").to(device)
  
 if USE_FP16==True:
     model=model.half()
@@ -56,10 +56,6 @@ def bench(batch,inputs,iterations):
     return (start.elapsed_time(end))/iterations
 
 
-processed_inputs=processor(images=img,return_tensors="pt",device=device)
-
-
-
-elapsed_time=bench(BATCH,iterations=200,inputs=processed_inputs)
+elapsed_time=bench(BATCH,iterations=200,inputs=img)
 
 print(f'Elapsed time is the following : {elapsed_time:>3}ms')
