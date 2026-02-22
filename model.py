@@ -8,7 +8,8 @@ import inspect
 
 if torch.cuda.is_available() == True:
     device="cuda"
-device="cpu"
+else:
+    device="cpu"
     
     
 processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50",device_map=device)
@@ -33,4 +34,4 @@ input=processor(images=processed_image,return_tensors="pt",device=device) #torch
 with torch.no_grad():
     output=model(**input)
 
-print(output)
+print(output.__dict__)
