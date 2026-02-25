@@ -18,7 +18,7 @@ USE_FP16=True
 BATCH=30
 
 processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
-model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-50").to(device)
+model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-50").to(device).eval()
  
 if USE_FP16==True:
     model=model.half()
@@ -32,7 +32,10 @@ img = Image.open("data/test_img.png").convert("RGB")
 
 def bench(batch,iterations=200,warmup=30):
     inputs=processor(images=[img]*batch,return_tensors="pt",device=device)
-    inputs={k: v.to(torch.float16) for k,v in inputs.items()}
+    inputs={k: v.to(dtype=torch.float16, device=device) for k,v in inputs.items()}
+    pv = inputs["pixel_values"]
+    assert pv.device == torch.device(device), f"Wrong device: {pv.device} vs {device}"
+    assert pv.dtype == torch.float16, f"Wrong dtype: {pv.dtype} vs fp16"
 
     #warmup
     with torch.inference_mode():
@@ -60,8 +63,6 @@ def bench(batch,iterations=200,warmup=30):
 
 
 test_processor=processor(images=img,return_tensors="pt",device=device)
-
-print(f'{id(test_processor)} | {id(test_processor.to(device))}')
 
 elapsed_time=[]
 
