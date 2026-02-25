@@ -8,6 +8,8 @@ import re
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+torch.backends.cudnn.benchmark=True
 if torch.cuda.is_available() == True:
     device="cuda:0"
 else:
@@ -60,9 +62,13 @@ def bench(batch,iterations=200,warmup=30):
     return avg_ms, thr
 
 
-elapsed_time=[]
-batch_index=[]
-
-for B in [1,8,32]:
+#TO DO : Run the inference 5 times for each batch number to see the average performance progression
+'''
+def avg_perf():
+benchmark_table=numpy.array()
+ for _ in range(5):
+    for B in [1,8,32]:
     batch,throughput=bench(B)
     print(f"n_batch={B} | throughput={throughput}")
+'''
+
