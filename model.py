@@ -5,6 +5,7 @@ from torchvision.transforms import v2
 from PIL import Image
 import inspect
 import re
+import matplotlib.pyplot as plt
 
 if torch.cuda.is_available() == True:
     device="cuda:0"
@@ -29,10 +30,9 @@ img = Image.open("data/test_img.png").convert("RGB")
 
 '''Benchmarking Function'''
 
-def bench(batch,inputs,iterations):
-    inputs=processor(images=[img]*batch,return_tensors="pt")
-    inputs.to(device=device)
-    inputs.to(torch.float16)
+def bench(batch,iterations=200,warmup=30):
+    inputs=processor(images=[img]*batch,return_tensors="pt",device=device)
+    inputs={k: v.to(torch.float16) for k,v in inputs.items()}
 
     #warmup
     with torch.inference_mode():
@@ -40,7 +40,6 @@ def bench(batch,inputs,iterations):
             _=model(**inputs)
     torch.cuda.synchronize()
     
-    iters=200
     start=torch.cuda.Event(enable_timing=True)
     end=torch.cuda.Event(enable_timing=True)
     
@@ -49,13 +48,28 @@ def bench(batch,inputs,iterations):
             inputs["pixel_values"]=inputs["pixel_values"].half() #reducing precision of the actual image tensor
         
         start.record()
-        for _ in range(iters):
+        for _ in range(iterations):
             _=model(**inputs)
         end.record()
     torch.cuda.synchronize()
-    return (start.elapsed_time(end))/iterations
+    
+    time_ms=start.elapsed_time(end) #duration for 200 iterations
+    avg_ms_per_iteration=time_ms / iterations #duration on avg for 1 iteration
+    throughput=(batch * 1000) / avg_ms_per_iteration 
+    return throughput
 
 
-elapsed_time=bench(BATCH,iterations=200,inputs=img)
+test_processor=processor(images=img,return_tensors="pt",device=device)
 
-print(f'Elapsed time is the following : {elapsed_time:>3}ms')
+print(f'{id(test_processor)} | {id(test_processor.to(device))}')
+
+elapsed_time=[]
+
+for B in [1,5,30]:
+    elapsed_time.append(bench(B))
+
+plt.plot(elapsed_time, [1,5,30], color="red")
+plt.xlabel("Elapsed Time (ms)")
+plt.ylabel("Number of Batches")
+plt.title("Batches vs Time")
+plt.show()
