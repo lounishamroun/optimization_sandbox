@@ -6,6 +6,7 @@ from PIL import Image
 import inspect
 import re
 import matplotlib.pyplot as plt
+import numpy as np
 
 if torch.cuda.is_available() == True:
     device="cuda:0"
@@ -31,8 +32,8 @@ img = Image.open("data/test_img.png").convert("RGB")
 '''Benchmarking Function'''
 
 def bench(batch,iterations=200,warmup=30):
-    inputs=processor(images=[img]*batch,return_tensors="pt",device=device)
-    inputs={k: v.to(dtype=torch.float16, device=device) for k,v in inputs.items()}
+    inputs=processor(images=[img]*batch,return_tensors="pt")
+    inputs={k: v.to(dtype=torch.float16 if USE_FP16 else torch.float32, device=device, non_blocking=True) for k,v in inputs.items()}
     pv = inputs["pixel_values"]
     assert pv.device == torch.device(device), f"Wrong device: {pv.device} vs {device}"
     assert pv.dtype == torch.float16, f"Wrong dtype: {pv.dtype} vs fp16"
@@ -46,31 +47,22 @@ def bench(batch,iterations=200,warmup=30):
     start=torch.cuda.Event(enable_timing=True)
     end=torch.cuda.Event(enable_timing=True)
     
-    with torch.inference_mode():
-        if USE_FP16==True:
-            inputs["pixel_values"]=inputs["pixel_values"].half() #reducing precision of the actual image tensor
-        
+    with torch.inference_mode():       
         start.record()
         for _ in range(iterations):
             _=model(**inputs)
         end.record()
+        
     torch.cuda.synchronize()
-    
     time_ms=start.elapsed_time(end) #duration for 200 iterations
-    avg_ms_per_iteration=time_ms / iterations #duration on avg for 1 iteration
-    throughput=(batch * 1000) / avg_ms_per_iteration 
-    return throughput
+    avg_ms=time_ms / iterations #duration on avg for 1 iteration
+    thr=(batch * 1000) / avg_ms 
+    return avg_ms, thr
 
-
-test_processor=processor(images=img,return_tensors="pt",device=device)
 
 elapsed_time=[]
+batch_index=[]
 
-for B in [1,5,30]:
-    elapsed_time.append(bench(B))
-
-plt.plot(elapsed_time, [1,5,30], color="red")
-plt.xlabel("Elapsed Time (ms)")
-plt.ylabel("Number of Batches")
-plt.title("Batches vs Time")
-plt.show()
+for B in [1,8,32]:
+    batch,throughput=bench(B)
+    print(f"n_batch={B} | throughput={throughput}")
