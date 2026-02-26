@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import statistics as stats
 
-
+torch._logging.set_logs(graph_code=True)
 torch.backends.cudnn.benchmark=True
 if torch.cuda.is_available() == True:
     device="cuda:0"
@@ -35,16 +35,25 @@ img = Image.open("data/test_img.png").convert("RGB")
 
 '''Benchmarking Function'''
 
-def bench(batch,iterations=200,warmup=30):
-    inputs=processor(images=[img]*batch,return_tensors="pt")
+
+def format_data(img_data,batch_size):
+    '''
+    GOAL: Used to generate data once instead of doing it each time we run the 'bench()' function.
+    '''
+    inputs=processor(images=[img_data]*batch_size,return_tensors="pt")
     inputs={k: v.to(dtype=torch.float16 if USE_FP16 else torch.float32, device=device, non_blocking=True) for k,v in inputs.items()}
     pv = inputs["pixel_values"]
     assert pv.device == torch.device(device), f"Wrong device: {pv.device} vs {device}"
     assert pv.dtype == torch.float16, f"Wrong dtype: {pv.dtype} vs fp16"
+    return inputs
 
+def bench(batch_size,inputs,iterations=200,warmup=30):
     #warmup
+    inputs=format_data(img_data=img,batch_size=batch_size)
+    print(inputs.keys())
+    
     with torch.inference_mode():
-        for _ in range(30):
+        for _ in range(warmup):
             _=model(**inputs)
     torch.cuda.synchronize()
     
@@ -60,7 +69,7 @@ def bench(batch,iterations=200,warmup=30):
     torch.cuda.synchronize()
     time_ms=start.elapsed_time(end) #duration for 200 iterations
     avg_ms=time_ms / iterations #duration on avg for 1 iteration
-    thr=(batch * 1000) / avg_ms 
+    thr=(batch_size * 1000) / avg_ms 
     return avg_ms, thr
 
     
@@ -68,14 +77,15 @@ def run_repeats(batch_size, reps=5):
     avgs = []
     thrs = []
     for _ in range(reps):
-        avg_ms, thr = bench(batch_size)
+        inputs=format_data(img,batch_size=batch_size)
+        avg_ms, thr = bench(batch_size,inputs=inputs)
         avgs.append(avg_ms)
         thrs.append(thr)
 
     print(
-        f"B={batch_size:>3}"
-        f"avg_ms={stats.mean(avgs):.3f} ± {stats.pstdev(avgs):.3f}"
-        f"thr={stats.mean(thrs):.1f} ± {stats.pstdev(thrs):.1f}"
+        f"B={batch_size:>3}\t"
+        f"avg_ms={stats.mean(avgs):.3f} ± {stats.pstdev(avgs):.3f}\t"
+        f"thr={stats.mean(thrs):.1f} ± {stats.pstdev(thrs):.1f}\t"
     )
 
 
