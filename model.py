@@ -7,6 +7,8 @@ import inspect
 import re
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import statistics as stats
 
 
 torch.backends.cudnn.benchmark=True
@@ -61,14 +63,23 @@ def bench(batch,iterations=200,warmup=30):
     thr=(batch * 1000) / avg_ms 
     return avg_ms, thr
 
+    
+def run_repeats(batch_size, reps=5):
+    avgs = []
+    thrs = []
+    for _ in range(reps):
+        avg_ms, thr = bench(batch_size)
+        avgs.append(avg_ms)
+        thrs.append(thr)
 
-#TO DO : Run the inference 5 times for each batch number to see the average performance progression
-'''
-def avg_perf():
-benchmark_table=numpy.array()
- for _ in range(5):
-    for B in [1,8,32]:
-    batch,throughput=bench(B)
-    print(f"n_batch={B} | throughput={throughput}")
-'''
+    print(
+        f"B={batch_size:>3}"
+        f"avg_ms={stats.mean(avgs):.3f} ± {stats.pstdev(avgs):.3f}"
+        f"thr={stats.mean(thrs):.1f} ± {stats.pstdev(thrs):.1f}"
+    )
 
+
+if __name__=="__main__":
+    for b in [1, 8, 32]:
+        run_repeats(b, reps=5)
+    
