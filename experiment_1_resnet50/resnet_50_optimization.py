@@ -1,16 +1,9 @@
 # Load model directly
 from transformers import AutoImageProcessor, AutoModelForImageClassification
 import torch
-from torchvision.transforms import v2
 from PIL import Image
-import inspect
-import re
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import statistics as stats
 
-torch._logging.set_logs(graph_code=True)
 torch.backends.cudnn.benchmark=True
 if torch.cuda.is_available() == True:
     device="cuda:0"
@@ -27,6 +20,10 @@ model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-50").t
  
 if USE_FP16==True:
     model=model.half()
+    
+compiled_model=torch.compile(model,mode="max-autotune")
+
+
 
 assert torch.device(model.device)==torch.device(device), f"Current device = {device} | model device = {model.device} "
     
@@ -47,11 +44,8 @@ def format_data(img_data,batch_size):
     assert pv.dtype == torch.float16, f"Wrong dtype: {pv.dtype} vs fp16"
     return inputs
 
-def bench(batch_size,inputs,iterations=200,warmup=30):
-    #warmup
-    inputs=format_data(img_data=img,batch_size=batch_size)
-    print(inputs.keys())
-    
+def bench(batch_size,inputs,model,iterations=200,warmup=30):
+        
     with torch.inference_mode():
         for _ in range(warmup):
             _=model(**inputs)
@@ -72,13 +66,12 @@ def bench(batch_size,inputs,iterations=200,warmup=30):
     thr=(batch_size * 1000) / avg_ms 
     return avg_ms, thr
 
-    
-def run_repeats(batch_size, reps=5):
+
+def run_repeats(inputs,batch_size,model=model, reps=5):
     avgs = []
     thrs = []
     for _ in range(reps):
-        inputs=format_data(img,batch_size=batch_size)
-        avg_ms, thr = bench(batch_size,inputs=inputs)
+        avg_ms, thr = bench(batch_size,inputs=inputs,model=model)
         avgs.append(avg_ms)
         thrs.append(thr)
 
@@ -88,8 +81,16 @@ def run_repeats(batch_size, reps=5):
         f"thr={stats.mean(thrs):.1f} ± {stats.pstdev(thrs):.1f}\t"
     )
 
-
 if __name__=="__main__":
+    
+    print("EAGER")
     for b in [1, 8, 32]:
-        run_repeats(b, reps=5)
+        inputs=format_data(img,batch_size=b)
+        run_repeats(inputs,b, reps=5)
+    
+    print("COMPILED")
+    for b in [1, 8, 32]:
+        inputs=format_data(img,batch_size=b)
+        run_repeats(inputs,b,model=compiled_model,reps=5)
+    
     
