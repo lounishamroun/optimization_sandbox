@@ -7,7 +7,7 @@ import statistics as stats
 torch._logging.set_logs(graph_breaks=True)
 torch.backends.cudnn.benchmark=True
 if torch.cuda.is_available() == True:
-    device="cuda:0"
+    device=torch.device(0)
 else:
     device="cpu"
     
@@ -49,11 +49,6 @@ def format_data(img_data,batch_size):
     GOAL: Used to generate data once instead of doing it each time we run the 'bench()' function.
     '''
     inputs=processor(images=[img_data]*batch_size,return_tensors="pt")
-    inputs={k: v.to(
-        dtype=torch.float16 if USE_FP16 else torch.float32,
-        device=device,
-        non_blocking=True)
-        for k,v in inputs.items()} #apply to inputs
 
     pv = inputs["pixel_values"]
     
@@ -62,19 +57,23 @@ def format_data(img_data,batch_size):
         assert pv.is_contiguous(memory_format=torch.channels_last),f"Inputs aren't channels last" 
         
     if USE_FP16==True:
+        pv=pv.to(dtype=torch.float16)
         assert pv.dtype == torch.float16, f"Inputs wrong dtype: {pv.dtype} vs fp16"
+    
+    pv=pv.to(device)
+    
     assert pv.device == torch.device(device), f"Inputs on wrong device: {pv.device} vs {device}"
     
-    return inputs
+    return pv
 
 def bench(batch_size,inputs,iterations=200,warmup=30):
         
     with torch.inference_mode():
         for _ in range(warmup):
             if COMPILE_MODEL==False:
-                _=model(**inputs)
+                _=model(inputs)
             else:
-                _=compiled_model(**inputs)
+                _=compiled_model(inputs)
     torch.cuda.synchronize()
     
     start=torch.cuda.Event(enable_timing=True)
@@ -84,9 +83,9 @@ def bench(batch_size,inputs,iterations=200,warmup=30):
         start.record()
         for _ in range(iterations):
             if COMPILE_MODEL==False:
-                _=model(**inputs)
+                _=model(inputs)
             else:
-                _=compiled_model(**inputs)
+                _=compiled_model(inputs)
         end.record()
         
     torch.cuda.synchronize()
@@ -127,9 +126,10 @@ if __name__=="__main__":
         inputs=format_data(img,batch_size=b)
         run_repeats(inputs,b, reps=5)
 
-    
-''' Bibliography
 
+# END OF PROGRAM -------------------------------------------------------------------------------------------------- #
+
+''' Bibliography :
 
 https://docs.pytorch.org/tutorials/recipes/recipes/tuning_guide.html
 https://pytorch.org/blog/accelerating-pytorch-vision-models-with-channels-last-on-cpu/
