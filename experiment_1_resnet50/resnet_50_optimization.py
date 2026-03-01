@@ -91,17 +91,17 @@ def run_repeats(inputs,batch_size, reps=5):
 
 if __name__=="__main__":
     
-    distillation_status="Distillation [X]"
+    precision_status="Precision [X]"
     memory_format_status="Channels Last Memory Format [X]"
     model_compilation_status="Model Compiled [X]"
     if USE_FP16==True:
-        distillation_status="Distillation [✓]"
+        precision_status="Precision [✓]"
     if CL_MEMORY_FORMAT==True:
         memory_format_status="Channels Last Memory [✓]"   
     if COMPILE_MODEL==True:
         model_compilation_status="Model Compiled [✓]"
     
-    print(f'State :{distillation_status} | {memory_format_status} | {model_compilation_status}')    
+    print(f'State :{precision_status} | {memory_format_status} | {model_compilation_status}')    
     for b in [1, 8, 32]:
         inputs=format_data(img,batch_size=b)
         run_repeats(inputs,b, reps=5)
