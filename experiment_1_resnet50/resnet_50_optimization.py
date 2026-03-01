@@ -22,7 +22,7 @@ model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-50").t
 if USE_FP16==True:
     model=model.half()
     
-compiled_model=torch.compile(model,mode="max-autotune")
+compiled_model=torch.compile(model,mode="max-autotune",fullgraph=True) #will raise an error in case of graph break
 
 
 
