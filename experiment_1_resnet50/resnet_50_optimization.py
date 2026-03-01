@@ -109,7 +109,10 @@ if __name__=="__main__":
     
 ''' Bibliography
 
-https://docs.pytorch.org/docs/stable/generated/torch.Tensor.stride.html
+
+https://docs.pytorch.org/tutorials/recipes/recipes/tuning_guide.html
+https://pytorch.org/blog/accelerating-pytorch-vision-models-with-channels-last-on-cpu/
+https://docs.pytorch.org/tutorials/intermediate/torch_compile_tutorial.html#graph-breaks
 
 
 '''
