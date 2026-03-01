@@ -14,7 +14,7 @@ else:
 print(f"Current device is {device}")
     
 USE_FP16=True
-CL_MEMORY_FORMAT=False #channels last memory format
+CL_MEMORY_FORMAT=True #channels last memory format
 COMPILE_MODEL=True
 BATCH=30
 
@@ -29,7 +29,10 @@ if COMPILE_MODEL==True:
         compiled_model=torch.compile(model,mode="max-autotune",fullgraph=True) #will raise an error in case of graph break
 
 if CL_MEMORY_FORMAT==True:
+    if COMPILE_MODEL==True:
+        compiled_model=compiled_model.to(memory_format=torch.channels_last)
     model=model.to(memory_format=torch.channels_last)
+    
     
     
 
@@ -46,17 +49,32 @@ def format_data(img_data,batch_size):
     GOAL: Used to generate data once instead of doing it each time we run the 'bench()' function.
     '''
     inputs=processor(images=[img_data]*batch_size,return_tensors="pt")
-    inputs={k: v.to(dtype=torch.float16 if USE_FP16 else torch.float32, device=device,memory_format=torch.channels_last if CL_MEMORY_FORMAT==True else torch.preserve_format, non_blocking=True) for k,v in inputs.items()}
+    inputs={k: v.to(
+        dtype=torch.float16 if USE_FP16 else torch.float32,
+        device=device,
+        non_blocking=True)
+        for k,v in inputs.items()} #apply to inputs
+
     pv = inputs["pixel_values"]
-    assert pv.device == torch.device(device), f"Wrong device: {pv.device} vs {device}"
-    assert pv.dtype == torch.float16, f"Wrong dtype: {pv.dtype} vs fp16"
+    
+    if CL_MEMORY_FORMAT==True:
+        pv=pv.to(memory_format=torch.channels_last)
+        assert pv.is_contiguous(memory_format=torch.channels_last),f"Inputs aren't channels last" 
+        
+    if USE_FP16==True:
+        assert pv.dtype == torch.float16, f"Inputs wrong dtype: {pv.dtype} vs fp16"
+    assert pv.device == torch.device(device), f"Inputs on wrong device: {pv.device} vs {device}"
+    
     return inputs
 
 def bench(batch_size,inputs,iterations=200,warmup=30):
         
     with torch.inference_mode():
         for _ in range(warmup):
-            _=model(**inputs)
+            if COMPILE_MODEL==False:
+                _=model(**inputs)
+            else:
+                _=compiled_model(**inputs)
     torch.cuda.synchronize()
     
     start=torch.cuda.Event(enable_timing=True)
@@ -65,7 +83,10 @@ def bench(batch_size,inputs,iterations=200,warmup=30):
     with torch.inference_mode():       
         start.record()
         for _ in range(iterations):
-            _=model(**inputs)
+            if COMPILE_MODEL==False:
+                _=model(**inputs)
+            else:
+                _=compiled_model(**inputs)
         end.record()
         
     torch.cuda.synchronize()
