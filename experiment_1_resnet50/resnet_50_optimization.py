@@ -3,6 +3,7 @@ from transformers import AutoImageProcessor, AutoModelForImageClassification
 import torch
 from PIL import Image
 import statistics as stats
+from torch.profiler import profile, ProfilerActivity, record_function
 
 torch._logging.set_logs(graph_breaks=True)
 torch.backends.cudnn.benchmark=True
@@ -16,6 +17,9 @@ print(f"Current device is {device}")
 USE_FP16=True
 CL_MEMORY_FORMAT=True #channels last memory format
 COMPILE_MODEL=True
+ENABLE_PROFILING=True
+CUDA_EVENT_MODE=False
+PROFILE_MODE=True
 BATCH=30
 
 processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
@@ -76,38 +80,59 @@ def bench(batch_size,inputs,iterations=200,warmup=30):
                 _=compiled_model(inputs)
     torch.cuda.synchronize()
     
-    start=torch.cuda.Event(enable_timing=True)
-    end=torch.cuda.Event(enable_timing=True)
-    
-    with torch.inference_mode():       
+    if CUDA_EVENT_MODE==True:
+        assert PROFILE_MODE==False,'Please disable profile mode if you want to use Cuda Events mode'
+        #CREATING CUDA EVENTS:
+        start=torch.cuda.Event(enable_timing=True)
+        end=torch.cuda.Event(enable_timing=True)
+        
+        #EVENTS RECORD:
         start.record()
+        with torch.inference_mode():
+            for _ in range(iterations):
+                if COMPILE_MODEL==False:
+                    _=model(inputs)
+                else:
+                    _=compiled_model(inputs)
+        end.record()
+        torch.cuda.synchronize()
+        time_ms=start.elapsed_time(end) #duration for 200 iterations
+        avg_ms=time_ms / iterations #duration on avg for 1 iteration
+        thr=(batch_size * 1000) / avg_ms 
+        return avg_ms, thr
+    
+    if PROFILE_MODE==True:
+        assert CUDA_EVENT_MODE==False,'Please disable Cuda Event Mode if you want to use Cuda Events mode'
+            
         for _ in range(iterations):
             if COMPILE_MODEL==False:
-                _=model(inputs)
+                with torch.profiler.profile(activities=[ProfilerActivity.CUDA],record_shapes=False,) as profile:
+                    with record_function("eager_model_inference"):
+                        _=model(inputs)
+                return profile
             else:
-                _=compiled_model(inputs)
-        end.record()
-        
-    torch.cuda.synchronize()
-    time_ms=start.elapsed_time(end) #duration for 200 iterations
-    avg_ms=time_ms / iterations #duration on avg for 1 iteration
-    thr=(batch_size * 1000) / avg_ms 
-    return avg_ms, thr
+                with torch.profiler.profile(activities=[ProfilerActivity.CUDA],record_shapes=False,) as profile:
+                    with record_function("compiled_model_inference"):
+                        _=compiled_model(inputs)
+                return profile
+    
 
 
 def run_repeats(inputs,batch_size, reps=5):
     avgs = []
     thrs = []
-    for _ in range(reps):
+    for _ in range(reps):      
         avg_ms, thr = bench(batch_size,inputs=inputs)
         avgs.append(avg_ms)
         thrs.append(thr)
-
     print(
-        f"B={batch_size:>3}\t"
-        f"avg_ms={stats.mean(avgs):.3f} ± {stats.pstdev(avgs):.3f}\t"
-        f"thr={stats.mean(thrs):.1f} ± {stats.pstdev(thrs):.1f}\t"
+    f"B={batch_size:>3}\t"
+    f"avg_ms={stats.mean(avgs):.3f} ± {stats.pstdev(avgs):.3f}\t"
+    f"thr={stats.mean(thrs):.1f} ± {stats.pstdev(thrs):.1f}\t"
     )
+        
+
+    
 
 if __name__=="__main__":
     
@@ -121,10 +146,16 @@ if __name__=="__main__":
     if COMPILE_MODEL==True:
         model_compilation_status="Model Compiled [✓]"
     
-    print(f'State :{precision_status} | {memory_format_status} | {model_compilation_status}')    
-    for b in [1, 8, 32]:
-        inputs=format_data(img,batch_size=b)
-        run_repeats(inputs,b, reps=5)
+    if CUDA_EVENT_MODE==True:
+        print(f'State :{precision_status} | {memory_format_status} | {model_compilation_status}')            
+        for b in [1, 8, 32]:
+            inputs=format_data(img,batch_size=b)
+            run_repeats(inputs,b, reps=5)
+    
+    if PROFILE_MODE==True:
+        inputs=format_data(img,batch_size=30)
+        profile=bench(batch_size=30,inputs=inputs,iterations=0)
+        print(dir(profile))
 
 
 # END OF PROGRAM -------------------------------------------------------------------------------------------------- #
@@ -134,6 +165,6 @@ if __name__=="__main__":
 https://docs.pytorch.org/tutorials/recipes/recipes/tuning_guide.html
 https://pytorch.org/blog/accelerating-pytorch-vision-models-with-channels-last-on-cpu/
 https://docs.pytorch.org/tutorials/intermediate/torch_compile_tutorial.html#graph-breaks
-
+https://docs.pytorch.org/tutorials/recipes/recipes/profiler_recipe.html
 
 '''
