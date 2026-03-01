@@ -1,27 +1,17 @@
 import torch
+from boilerplates.measuring_execution_time import bench 
+torch._logging.set_logs(graph_breaks=True)
 
-def micro_bench(fn):
-    start=torch.cuda.Event(enable_timing=True)
-    stop=torch.cuda.Event(enable_timing=True)
-    start.record()
-    function_return=fn()
-    stop.record()
-    torch.cuda.synchronize()
-    elapsed_time_=start.elapsed_time(stop)
-    return (elapsed_time_/1000)
+def bar(a, b):
+    x = a / (torch.abs(a) + 1)
+    if b.sum() < 0:
+        b = b * -1
+    return x * b
 
 
-def random_fn():
-    tensor_1=torch.randn(size=(2,2))
-    tensor_2=torch.randn(size=(2,2))
-    torch.matmul(tensor_1,tensor_2)
+opt_bar = torch.compile(bar)
+inp1 = torch.ones(10)
+inp2 = torch.ones(10)
 
-@torch.compile
-def compiled_random_fn():
-    tensor_1=torch.randn(size=(2,2))
-    tensor_2=torch.randn(size=(2,2))
-    torch.matmul(tensor_1,tensor_2)
-    
-if __name__=="__main__":
-    print(micro_bench(random_fn))
-    print(micro_bench(compiled_random_fn))
+opt_bar(inp1, inp2)
+opt_bar(inp1, -inp2)

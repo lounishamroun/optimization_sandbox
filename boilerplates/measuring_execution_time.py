@@ -1,18 +1,18 @@
 import torch
 
-def bench(target_fn,warmup=20):
+def bench(fn_input,target_fn,warmup=20):
 
     torch.cuda.synchronize()
     start=torch.cuda.Event(enable_timing=True)
     end=torch.cuda.Event(enable_timing=True)
     
     #warmup bench
-    for _ in warmup:
-        target_fn()
+    for _ in range(warmup):
+        target_fn(fn_input)
     
     #real bench
     start.record()
-    target_fn()
+    target_fn(fn_input)
     end.record()
     torch.cuda.synchronize()
     

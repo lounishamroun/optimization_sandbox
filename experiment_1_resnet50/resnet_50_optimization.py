@@ -4,6 +4,7 @@ import torch
 from PIL import Image
 import statistics as stats
 
+torch._logging.set_logs(graph_breaks=True)
 torch.backends.cudnn.benchmark=True
 if torch.cuda.is_available() == True:
     device="cuda:0"
