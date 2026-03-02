@@ -22,6 +22,11 @@ CUDA_EVENT_MODE=False
 PROFILE_MODE=True
 BATCH=30
 
+if ENABLE_PROFILING==True:
+    CUDA_EVENT_MODE=False
+else:
+    CUDA_EVENT_MODE=True
+
 processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
 model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-50").to(device).eval()
  
@@ -103,18 +108,19 @@ def bench(batch_size,inputs,iterations=200,warmup=30):
     
     if PROFILE_MODE==True:
         assert CUDA_EVENT_MODE==False,'Please disable Cuda Event Mode if you want to use Cuda Events mode'
-            
-        for _ in range(iterations):
-            if COMPILE_MODEL==False:
-                with torch.profiler.profile(activities=[ProfilerActivity.CUDA],record_shapes=False,) as profile:
-                    with record_function("eager_model_inference"):
-                        _=model(inputs)
-                return profile
-            else:
-                with torch.profiler.profile(activities=[ProfilerActivity.CUDA],record_shapes=False,) as profile:
-                    with record_function("compiled_model_inference"):
-                        _=compiled_model(inputs)
-                return profile
+        if COMPILE_MODEL==False:
+            with torch.profiler.profile(activities=[ProfilerActivity.CUDA],record_shapes=False,) as profile:
+                with record_function("eager_model_inference"):
+                    for _ in range(iterations):
+                            _=model(inputs)
+            profile.export_chrome_trace("profiler.json")
+        else:
+            with torch.profiler.profile(activities=[ProfilerActivity.CUDA],record_shapes=False,) as profile:
+                with record_function("compilation_model_inference"):
+                    for _ in range(iterations):
+                            _=model(inputs)
+            profile.export_chrome_trace("profiler.json")
+                
     
 
 
@@ -131,8 +137,6 @@ def run_repeats(inputs,batch_size, reps=5):
     f"thr={stats.mean(thrs):.1f} ± {stats.pstdev(thrs):.1f}\t"
     )
         
-
-    
 
 if __name__=="__main__":
     
@@ -154,8 +158,8 @@ if __name__=="__main__":
     
     if PROFILE_MODE==True:
         inputs=format_data(img,batch_size=30)
-        profile=bench(batch_size=30,inputs=inputs,iterations=0)
-        print(dir(profile))
+        bench(batch_size=30,inputs=inputs,iterations=0)
+        
 
 
 # END OF PROGRAM -------------------------------------------------------------------------------------------------- #
