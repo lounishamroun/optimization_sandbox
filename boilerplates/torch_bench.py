@@ -1,6 +1,6 @@
 import torch
 
-def bench(fn_input,target_fn,warmup=20):
+def a_b_bench(fn_input,target_fn,warmup=20):
 
     torch.cuda.synchronize()
     start=torch.cuda.Event(enable_timing=True)

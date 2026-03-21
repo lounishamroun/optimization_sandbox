@@ -1,10 +1,15 @@
-#import torch
-
+import torch
 import triton
 import triton.language as tl
+import numpy as np
+import statistics
+
+
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 @triton.jit
-def add_kernel(x_ptr,
+def _add_kernel(x_ptr, #private function
                y_ptr,  
                output_ptr,  
                n_elements,  
@@ -28,6 +33,98 @@ def add_kernel(x_ptr,
     output=x+y
     tl.store(output_ptr+offsets,output,mask=mask)
     
+def add(x: torch.Tensor, y: torch.Tensor):
+    # We need to preallocate the output.
+    output = torch.empty_like(x)
+    BLOCK_SIZE=1024
     
+    '''<ERROR HANDLING'''
+    if BLOCK_SIZE <= 0 or BLOCK_SIZE & (BLOCK_SIZE - 1) != 0:
+        raise ValueError("BLOCK_SIZE must be a positive power of 2")
+    
+    #assert x.device == DEVICE and y.device == DEVICE and output.device == DEVICE,f"Device aren't the same, X Device is :{x.device}, Y Device is :{y.device}, Output Device is :{y.device}"
+    
+    '''ERROR HANDLING>'''
+    
+    n_elements = output.numel() #n_elements inside the output tensor
+    
+    # The SPMD launch grid denotes the number of kernel instances that run in parallel.
+        
+    grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
+    
+    
+    _add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE) # => An helper function acts as an intermediate before calling the target function
+    #:/!\ Block sizes must always be power of 2 /!\
+    
+    return output
+
+def torch_style_bench(triton_fn, *args, n_calls=1000):
+    
+    x,y=args
+    
+    torch.testing.assert_close(add(x,y),x+y) #Check value correctness
+    
+    start_torch=torch.cuda.Event(enable_timing=True)
+    stop_torch=torch.cuda.Event(enable_timing=True)
+    start_triton=torch.cuda.Event(enable_timing=True)
+    stop_triton=torch.cuda.Event(enable_timing=True) 
+   
+    '''BENCHING NATIVE TORCH FUNCTION'''
+    torch.cuda.synchronize()
+    start_torch.record()
+    for _ in range(n_calls):
+        x+y
+    stop_torch.record()
+    torch.cuda.synchronize()
+    
+    '''BENCHING TRITON KERNEL'''
+    torch.cuda.synchronize()
+    start_triton.record()
+    for _ in range(n_calls):
+        triton_fn(x,y)
+    stop_triton.record()
+    torch.cuda.synchronize()
+    
+    
+    torch_fn_duration_ms=start_torch.elapsed_time(stop_torch)/1000
+    triton_fn_duration_ms=start_triton.elapsed_time(stop_triton)/1000
+    return torch_fn_duration_ms,triton_fn_duration_ms
+    
+    
+
 if __name__=='__main__':
-    pass
+    print("Comparing Torch VS Triton")
+    
+    torch.manual_seed(0)
+    warmp_x=torch.rand(2**4,device=DEVICE)
+    warmp_y=torch.rand(2**4,device=DEVICE)
+    
+    '''TORCH WARMUP'''
+    for _ in range(30):
+        warmp_x+warmp_y
+        
+    '''TRITON WARMUP'''
+    for _ in range(30):
+        add(warmp_x,warmp_y)
+        
+    tensor_value_range=[2**10, 2**14, 2**18, 2**22, 2**24]
+    torch_fn_avg_duration_ms=[]
+    triton_fn_avg_duration_ms=[]
+
+
+    for tensor_size in tensor_value_range:
+        x=torch.rand(tensor_size,device=DEVICE)
+        y=torch.rand(tensor_size,device=DEVICE)
+        torch_fn_duration_ms,triton_fn_duration_ms=torch_style_bench(add,x,y)
+    
+    
+    #TO DO:Implement seperate benchmark for each tensor size, check on correctness (torch.testing)
+    '''
+    if triton_avg < torch_avg:
+        speedup = torch_avg / triton_avg
+        print(f'Triton is {speedup:.3f}x faster than PyTorch')
+    else:
+        slowdown = triton_avg / torch_avg
+        print(f'Triton is {slowdown:.3f}x slower than PyTorch')
+    '''
+    
