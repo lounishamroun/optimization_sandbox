@@ -127,7 +127,7 @@ if __name__=='__main__':
     for _ in range(30):
         add(warmp_x,warmp_y)
         
-    tensor_value_range=[2**10, 2**14, 2**18, 2**22, 2**24,2**24]
+    tensor_value_range=[2**10, 2**14, 2**18, 2**22, 2**24,2**24,2**40]
     torch_fn_avg_duration_ms=[]
     triton_fn_avg_duration_ms=[]
 
