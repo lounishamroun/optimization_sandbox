@@ -98,6 +98,9 @@ def benchmark_viz(bench_value,tensor_value_range):
     Parameters
     bench_value : np.array(n,n)
     shape(bench_value) => (10,8) => Benchmark repeated 10 times for 8 different tensor size 
+    
+    Return
+    pd.DataFrame
     '''
     
     col_means=[statistics.fmean(bench_value[:,col_idx]) for col_idx in range(np.shape(bench_value)[1])]
@@ -127,7 +130,10 @@ if __name__=='__main__':
     for _ in range(30):
         add(warmp_x,warmp_y)
         
-    tensor_value_range=[2**10, 2**14, 2**18, 2**22, 2**24,2**24,2**40]
+        
+    #TO DO : Include memory guardrail for tensor size
+        
+    tensor_value_range=[2**10, 2**14, 2**18, 2**22, 2**24,2**28]
     torch_fn_avg_duration_ms=[]
     triton_fn_avg_duration_ms=[]
 
@@ -146,13 +152,19 @@ if __name__=='__main__':
     # TO DO : Matplotlib plot bench torch vs triton
     ''' DATAVIZ '''
     
-    '''
-    ax,fig=plt.fig(figsize=(5,5))
-    plt.plot(x=tensor_value_range,y=benchmark_viz_torch)
+    torch_ms = benchmark_viz_torch.to_numpy().squeeze()
+    triton_ms = benchmark_viz_triton.to_numpy().squeeze()
+    
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(tensor_value_range, torch_ms, c='r', linewidth=2, label='Torch')
+    ax.plot(tensor_value_range, triton_ms, c='g', linewidth=2, label='Triton')
+    ax.set_ylabel('Duration (ms)')
+    ax.set_xlabel('Tensor size')
+    ax.legend()
+    plt.show()
     
     
-    
-    '''
+
     
     
     

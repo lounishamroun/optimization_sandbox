@@ -12,3 +12,4 @@ Benchmarking a vector addition Triton Kernel was working with those values => te
 
 But adding 2**40 raised an error =>  *Tried to allocate 4096.00 GiB. GPU 0 has a total capacity of 31.84 GiB of which 29.98 GiB is free*.
 
+Obviously the GPU I used has a max capacity of 32607MiB.
