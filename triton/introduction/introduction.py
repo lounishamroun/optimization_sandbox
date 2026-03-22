@@ -3,7 +3,8 @@ import triton
 import triton.language as tl
 import numpy as np
 import statistics
-
+import pandas as pd 
+import matplotlib.pyplot as plt 
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -89,8 +90,27 @@ def torch_style_bench(triton_fn, *args, n_calls=1000):
     torch_fn_duration_ms=start_torch.elapsed_time(stop_torch)/1000
     triton_fn_duration_ms=start_triton.elapsed_time(stop_triton)/1000
     return torch_fn_duration_ms,triton_fn_duration_ms
+
+
+def benchmark_viz(bench_value,tensor_value_range):
     
+    '''
+    Parameters
+    bench_value : np.array(n,n)
+    shape(bench_value) => (10,8) => Benchmark repeated 10 times for 8 different tensor size 
+    '''
     
+    col_means=[statistics.fmean(bench_value[:,col_idx]) for col_idx in range(np.shape(bench_value)[1])]
+    
+    stringified_tensor_size=[str(x) for x in tensor_value_range]    
+
+    
+    benchmark_df=pd.DataFrame(
+        data=np.array(col_means).reshape(1, -1),
+        columns=stringified_tensor_size
+        )
+    
+    return benchmark_df
 
 if __name__=='__main__':
     print("Comparing Torch VS Triton")
@@ -107,7 +127,7 @@ if __name__=='__main__':
     for _ in range(30):
         add(warmp_x,warmp_y)
         
-    tensor_value_range=[2**10, 2**14, 2**18, 2**22, 2**24]
+    tensor_value_range=[2**10, 2**14, 2**18, 2**22, 2**24,2**24]
     torch_fn_avg_duration_ms=[]
     triton_fn_avg_duration_ms=[]
 
@@ -116,15 +136,24 @@ if __name__=='__main__':
         x=torch.rand(tensor_size,device=DEVICE)
         y=torch.rand(tensor_size,device=DEVICE)
         torch_fn_duration_ms,triton_fn_duration_ms=torch_style_bench(add,x,y)
+        torch_fn_avg_duration_ms.append(torch_fn_duration_ms)
+        triton_fn_avg_duration_ms.append(triton_fn_duration_ms)
+    
+    benchmark_viz_torch=benchmark_viz(np.array(torch_fn_avg_duration_ms).reshape(1,-1),tensor_value_range)
+    benchmark_viz_triton=benchmark_viz(np.array(triton_fn_avg_duration_ms).reshape(1,-1),tensor_value_range)
+    print(f"Triton Benchmark {benchmark_viz_triton} VS \n Torch Benchmark {benchmark_viz_torch}  ")
+    
+    # TO DO : Matplotlib plot bench torch vs triton
+    ''' DATAVIZ '''
+    
+    '''
+    ax,fig=plt.fig(figsize=(5,5))
+    plt.plot(x=tensor_value_range,y=benchmark_viz_torch)
     
     
-    #TO DO:Implement seperate benchmark for each tensor size, check on correctness (torch.testing)
+    
     '''
-    if triton_avg < torch_avg:
-        speedup = torch_avg / triton_avg
-        print(f'Triton is {speedup:.3f}x faster than PyTorch')
-    else:
-        slowdown = triton_avg / torch_avg
-        print(f'Triton is {slowdown:.3f}x slower than PyTorch')
-    '''
+    
+    
+    
     
