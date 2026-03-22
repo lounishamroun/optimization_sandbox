@@ -115,7 +115,7 @@ def benchmark_viz(bench_value,tensor_value_range):
     
     return benchmark_df
 
-if __name__=='__main__':
+def matplotlib_bench():
     print("Comparing Torch VS Triton")
     
     torch.manual_seed(0)
@@ -133,7 +133,7 @@ if __name__=='__main__':
         
     #TO DO : Include memory guardrail for tensor size
         
-    tensor_value_range=[2**10, 2**14, 2**18, 2**22, 2**24,2**28]
+    tensor_value_range=[2**10, 2**14, 2**18, 2**22, 2**24]
     torch_fn_avg_duration_ms=[]
     triton_fn_avg_duration_ms=[]
 
@@ -163,9 +163,35 @@ if __name__=='__main__':
     ax.legend()
     plt.show()
     
-    
 
-    
-    
+@triton.testing.perf_report(
+    triton.testing.Benchmark(
+        x_names=['size'],  
+        x_vals=[2**i for i in range(12, 28, 1)],  
+        x_log=True, 
+        line_arg='provider',  
+        line_vals=['triton', 'torch'],  
+        line_names=['Triton', 'Torch'], 
+        styles=[('blue', '-'), ('green', '-')],  
+        ylabel='GB/s',  
+        plot_name='vector-add-performance',  
+        args={},  
+    ))
+
+def benchmark(size,provider):
+    x=torch.random(size,device=DEVICE,dtype=torch.float32)
+    y=torch.random(size,device=DEVICE,dtype=torch.float32)
+    quantiles=[0.2,0.5,0.8]
+    if provider=='triton':
+        ms,min_ms,max_ms=triton.testing.do_bench(lambda:add(x,y),quantiles=quantiles)
+        
+    if provider=='pytorch':
+        ms,min_ms,max_ms=triton.testing.do_bench(lambda:x+y,quantiles=quantiles)
+        
+    gbps = lambda ms:3*x.numel()*x.element_size()*1e-9 /ms*1e-3 #=> N values of X * How much bytes per value * Conversion in GB
+    return gbps(ms),gbps(min_ms),gbps(max_ms)
+
+if __name__=="__main__":
+    benchmark.run()
     
     
