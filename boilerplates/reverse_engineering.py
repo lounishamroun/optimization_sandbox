@@ -1,5 +1,6 @@
 
 def reverse_engineer_debug_(target,instance_of=None,print_dir=False):
+  print("----- LOG START ----\n")
   print(target)
   try:
     print(f'{getattr(target,"shape")}')
@@ -12,4 +13,7 @@ def reverse_engineer_debug_(target,instance_of=None,print_dir=False):
     else:
       print(f"Target isn't an instance of {instance_of}")
   if print_dir==True:
-    print([attr for attr in dir(target) if not attr.startswith("_")])
+    print(f'{[attr for attr in dir(target) if not attr.startswith("_")]}\n')
+  print("----- LOG END ----\n")
+    
+  
