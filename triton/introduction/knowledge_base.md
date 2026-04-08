@@ -7,4 +7,4 @@
 
 
 # BREAKING POINTS
-- Don't set a block sizes which aren't powers of 2;
+- Don't set a block sizes which aren't powers of 2.

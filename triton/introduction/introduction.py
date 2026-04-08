@@ -6,6 +6,9 @@ import statistics
 import pandas as pd 
 import matplotlib.pyplot as plt 
 
+
+
+
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -132,7 +135,8 @@ def matplotlib_bench():
         
         
     #TO DO : Include memory guardrail for tensor size
-        
+    
+    # /!\ Make sure your GPU has enough memory to run tensors of such size /!\
     tensor_value_range=[2**10, 2**14, 2**18, 2**22, 2**24]
     torch_fn_avg_duration_ms=[]
     triton_fn_avg_duration_ms=[]
@@ -179,19 +183,19 @@ def matplotlib_bench():
     ))
 
 def benchmark(size,provider):
-    x=torch.random(size,device=DEVICE,dtype=torch.float32)
-    y=torch.random(size,device=DEVICE,dtype=torch.float32)
+    x=torch.rand(size,device=DEVICE,dtype=torch.float32)
+    y=torch.rand(size,device=DEVICE,dtype=torch.float32)
     quantiles=[0.2,0.5,0.8]
     if provider=='triton':
         ms,min_ms,max_ms=triton.testing.do_bench(lambda:add(x,y),quantiles=quantiles)
         
-    if provider=='pytorch':
+    elif provider=='torch':
         ms,min_ms,max_ms=triton.testing.do_bench(lambda:x+y,quantiles=quantiles)
         
     gbps = lambda ms:3*x.numel()*x.element_size()*1e-9 /ms*1e-3 #=> N values of X * How much bytes per value * Conversion in GB
     return gbps(ms),gbps(min_ms),gbps(max_ms)
 
 if __name__=="__main__":
-    benchmark.run()
+    benchmark.run(print_data=True, show_plots=True)
     
     

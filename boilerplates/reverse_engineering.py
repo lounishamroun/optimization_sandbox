@@ -1,5 +1,5 @@
 
-def reverse_engineer_debug_(target,instance_of=None,print_dir=False):
+def reverse_engineer_debug_(target,instance_of=None,print_dir=False,debug_label:str=None):
   print("----- LOG START ----\n")
   print(target)
   try:
