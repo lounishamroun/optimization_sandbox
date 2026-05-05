@@ -1,5 +1,7 @@
-# CREDITS
-- TRITON OFFICAL DOC : https://triton-lang.org/main/getting-started/tutorials/01-vector-add.html
+# INDEX
+
+## Concepts
+Block size, program id explain in => .
 
 
 # LESSONS
@@ -8,3 +10,8 @@
 
 # BREAKING POINTS
 - Don't set a block sizes which aren't powers of 2.
+
+
+# CREDITS
+- TRITON OFFICAL DOC : https://triton-lang.org/main/getting-started/tutorials/01-vector-add.html
+

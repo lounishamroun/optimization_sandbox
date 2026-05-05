@@ -9,6 +9,30 @@ import matplotlib.pyplot as plt
 from boilerplates.reverse_engineering import reverse_engineer_debug_ as red 
 
 
+''' KEY TRITON CONCEPTS
+
+A kernel can be simplified as being a mathematical operation.
+
+Let X be a vector of size S=3072. The kernel being => 'subtract the number 1 to each element E of X'.
+
+Instead of applying the kernel (substraction operation) to every E in one pass.
+
+We'll divide X by a value called the 'block_size' which must be a power of 2,
+which is basically the number of element E we want each of our kernel instance to process.
+
+Let set our block_size to 1024.
+
+Hence we'll find ourselve with 3 blocks of E (3072/1024 = 3) each of size=1024.
+
+We can also say that we're launching a grid of size 3.
+
+To which we'll assign a program id, being clones of our original Kernel,
+hence we'll be able to apply 3 kernels in parallel on 3 different portion of our original vector X.
+   
+'''
+
+
+
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def is_hip():
