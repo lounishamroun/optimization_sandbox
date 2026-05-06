@@ -44,6 +44,14 @@ def is_cdna():
                                                                                    'gfx90a', 'gfx908')
 
 
+''' M×N Row-wise Softmax
+
+Even though softmax is defined on a single logit vector of dimension N, in practice we often compute many independent softmaxes at once.
+
+So the input is represented as an M×N matrix, where each row is one logit vector of length N.
+
+The kernel applies softmax independently to each row.
+'''
 def naive_softmax(logits): # N*D
     x_max = logits.max(dim=1)[0] 
     print(f'From x tensor of shape : {logits.shape}, \n we substract the max values (shape:{x_max[:,None].shape}) of each row from it')
@@ -64,11 +72,6 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
     for row_idx in tl.range(row_start, n_rows, row_step, num_stages=num_stages):
         # The stride represents how much we need to increase the pointer to advance 1 row
         row_start_ptr = input_ptr + row_idx * input_row_stride
-        
-        #input_ptr + row_idx + input_row_stride
-        #1 + 1 * 2
-        
-        
         # The block size is the next power of two greater than n_cols, so we can fit each
         # row in a single block
         col_offsets = tl.arange(0, BLOCK_SIZE)
