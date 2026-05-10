@@ -75,7 +75,7 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
         
 
         col_offsets = tl.arange(0, BLOCK_SIZE) 
-        input_ptrs = row_start_ptr + col_offsets
+        input_ptrs = row_start_ptr + col_offsets #Shift the input pointer by offsets.
         mask = col_offsets < n_cols
 
         ''' Since we want our BLOCK_SIZE to be the next power of 2 wrt the number of columns of the original tensor, 
