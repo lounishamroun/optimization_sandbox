@@ -72,12 +72,26 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
     for row_idx in tl.range(row_start, n_rows, row_step, num_stages=num_stages):
         # The stride represents how much we need to increase the pointer to advance 1 row
         row_start_ptr = input_ptr + row_idx * input_row_stride
-        # The block size is the next power of two greater than n_cols, so we can fit each
-        # row in a single block
-        col_offsets = tl.arange(0, BLOCK_SIZE)
+        
+
+        col_offsets = tl.arange(0, BLOCK_SIZE) 
         input_ptrs = row_start_ptr + col_offsets
-        # Load the row into SRAM, using a mask since BLOCK_SIZE may be > than n_cols
         mask = col_offsets < n_cols
+
+        ''' E.G: BLOCK_SIZE=4 | Tensor Col number = 3 
+        
+        col_offsets=tl.arange(0, BLOCK_SIZE)=> [0,1,2,3] This will generate a vector containing 4 indexes.
+
+        However since our true tensor has only 3 columns we'll mask the last column
+        
+        mask=col_offsets<n_cols => The last column will be masked as such : [0,1,2,-infinity]
+        
+        
+        '''
+
+
+
+
         row = tl.load(input_ptrs, mask=mask, other=-float('inf'))
         # Subtract maximum for numerical stability
         row_minus_max = row - tl.max(row, axis=0)
