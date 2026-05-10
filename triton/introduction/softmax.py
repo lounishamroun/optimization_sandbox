@@ -78,15 +78,17 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
         input_ptrs = row_start_ptr + col_offsets
         mask = col_offsets < n_cols
 
-        ''' E.G: BLOCK_SIZE=4 | Tensor Col number = 3 
+        ''' Since we want our BLOCK_SIZE to be the next power of 2 wrt the number of columns of the original tensor, 
+            let's take the following case:
         
-        col_offsets=tl.arange(0, BLOCK_SIZE)=> [0,1,2,3] This will generate a vector containing 4 indexes.
+                E.G: BLOCK_SIZE=4 | Tensor Col number = 3 
+                
+                col_offsets=tl.arange(0, BLOCK_SIZE)=> [0,1,2,3] This will generate a vector containing 4 indexes.
 
-        However since our true tensor has only 3 columns we'll mask the last column
-        
-        mask=col_offsets<n_cols => The last column will be masked as such : [0,1,2,-infinity]
-        
-        
+                However since our true tensor has only 3 columns we'll mask the last column.
+                
+                mask=col_offsets<n_cols => The last column will be masked as such : [0,1,2,-infinity], we apply a sort of "padding".
+
         '''
 
 
