@@ -105,14 +105,18 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
         
         ''' /!\ Physical vs BLOCK_SIZE padding /!\ 
 
-        Be careful to not mix those concepts.
+        Be careful not to mix these concepts.
 
-        We have the physical padding which are physical memory padded blocks (reason for using stride != number of columns).
-            - Since computers do not always store memory contiguously.    
-        But we also have logical padding used in order to have the right block size (more on that later).
-        Pointers lies in the physical world so we'll use the row stride in order to count physical memory padding (not seen by triton).
-        Block size lie in the logical world so we'll need a mask to tell Triton to ignore those columns.
-        
+        We have physical padding, which means extra physical memory slots may exist between rows.
+        This is one reason why row_stride can be different from the number of columns.
+            - Computers do not always store the logical tensor compactly row after row (contiguously).
+
+        But we also have computational padding, used to get the right Triton BLOCK_SIZE.
+
+        Pointers live in the physical memory world, so we use row_stride to move correctly from one row to the next, including any physical padding or layout gaps.
+
+        BLOCK_SIZE lives in the computational/kernel world, so we need a mask to tell Triton to ignore lanes that do not correspond to real columns.
+                
         
         '''
         input_ptrs = row_start_ptr + col_offsets #Shift the input pointer by offsets.
@@ -144,6 +148,14 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
         # Write back output to DRAM
         output_row_start_ptr = output_ptr + row_idx * output_row_stride
         output_ptrs = output_row_start_ptr + col_offsets
+
+        '''Why using a different row stride ? 
+        - Even though Softmax doesn't change the output logical shape, like I said physical memory layout can change.
+            - We differentiate between input_row_stride and output_row_stride.
+                - because the input and output tensors may have the same logical shape but different physical memory layouts.
+                  So we differenciate between input/output in-memory tensor row stride.
+        
+        '''
         tl.store(output_ptrs, softmax_output, mask=mask)
 
 ''' Explanation (in my own words)
