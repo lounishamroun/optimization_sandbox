@@ -63,6 +63,7 @@ def naive_softmax(logits): # N*D
     return softmax
     
 
+'''_ I KERNEL _'''
 @triton.jit
 def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n_rows, n_cols, BLOCK_SIZE: tl.constexpr,
                    num_stages: tl.constexpr):
@@ -135,9 +136,6 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
 
         '''
 
-
-
-
         row = tl.load(input_ptrs, mask=mask, other=-float('inf'))
         # Subtract maximum for numerical stability
         row_minus_max = row - tl.max(row, axis=0)
@@ -158,13 +156,37 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
         '''
         tl.store(output_ptrs, softmax_output, mask=mask)
 
-''' Explanation (in my own words)
+
+'''_ II - HELPER FUNCTION _'''
 
 
-Why aren't we starting with columns instead of rows?
+# PSEUDO-CODE
+
+@triton.jit
+def helper(x):
+    n_cols=x.shape[1]
+    n_rows=x.shape[0]
+    BLOCK_SIZE=tl.next_power_of_2(n_cols)
+
+    if computer_memory > 200000:
+        num_stages=3
+    else:
+        num_stages=1
+
+    size=x.size()
+
+    warp=size/BLOCK_SIZE
 
 
-'''
 
+    softmax_kernel[(grid,num_warps=num_warps)](
+        n_cols,
+        input_ptr,
+        input_row_stride,
+        output_ptr,
+        output_row_stride,
+        BLOCK_SIZE=BLOCK_SIZE,
+        num_stages=num_stages
+        )
 
 
