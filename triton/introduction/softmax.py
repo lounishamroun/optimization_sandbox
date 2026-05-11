@@ -70,11 +70,51 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
     row_start = tl.program_id(0)
     row_step = tl.num_programs(0)
     for row_idx in tl.range(row_start, n_rows, row_step, num_stages=num_stages):
-        # The stride represents how much we need to increase the pointer to advance 1 row
+        
+        '''
+        The stride represents how much we need to increase the pointer to advance by one row.
+
+        Intuitively, we could ask: why not just use the number of columns?
+
+        Because we should not mix up the logical shape of the tensor with its physical memory layout.
+
+        For a contiguous tensor with 3 columns, the next row starts 3 elements later, so row_stride = 3.
+
+        But the tensor may be stored with extra physical padding or may be a non-contiguous view. 
+        In that case, even if the tensor logically has 3 columns, the next row may start 4, 5, ...
+
+        Example:
+
+        logical tensor:
+        row 0: a b c
+        row 1: d e f
+
+        physical memory:
+        a b c PAD d e f PAD
+
+        Here:
+        n_cols = 3
+        row_stride = 4
+
+        '''
+
         row_start_ptr = input_ptr + row_idx * input_row_stride
         
 
         col_offsets = tl.arange(0, BLOCK_SIZE) 
+        
+        ''' /!\ Physical vs BLOCK_SIZE padding /!\ 
+
+        Be careful to not mix those concepts.
+
+        We have the physical padding which are physical memory padded blocks (reason for using stride != number of columns).
+            - Since computers do not always store memory contiguously.    
+        But we also have logical padding used in order to have the right block size (more on that later).
+        Pointers lies in the physical world so we'll use the row stride in order to count physical memory padding (not seen by triton).
+        Block size lie in the logical world so we'll need a mask to tell Triton to ignore those columns.
+        
+        
+        '''
         input_ptrs = row_start_ptr + col_offsets #Shift the input pointer by offsets.
         mask = col_offsets < n_cols
 
