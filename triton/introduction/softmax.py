@@ -160,33 +160,64 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
 '''_ II - HELPER FUNCTION _'''
 
 
-# PSEUDO-CODE
+properties = driver.active.utils.get_device_properties(DEVICE.index)
+NUM_SM = properties["multiprocessor_count"]
+NUM_REGS = properties["max_num_regs"]
+SIZE_SMEM = properties["max_shared_mem"]
+WARP_SIZE = properties["warpSize"]
+target = triton.runtime.driver.active.get_current_target()
+kernels = {}
 
-@triton.jit
-def helper(x):
-    n_cols=x.shape[1]
-    n_rows=x.shape[0]
-    BLOCK_SIZE=tl.next_power_of_2(n_cols)
 
-    if computer_memory > 200000:
-        num_stages=3
+def softmax(x):
+    n_rows, n_cols = x.shape
+
+    # The block size of each loop iteration is the smallest power of two greater than the number of columns in `x`
+    BLOCK_SIZE = triton.next_power_of_2(n_cols)
+
+    # Another trick we can use is to ask the compiler to use more threads per row by
+    # increasing the number of warps (`num_warps`) over which each row is distributed.
+    # You will see in the next tutorial how to auto-tune this value in a more natural
+    # way so you don't have to come up with manual heuristics yourself.
+    num_warps = 8
+
+    # Number of software pipelining stages.
+    num_stages = 4 if SIZE_SMEM > 200000 else 2
+
+    # Allocate output
+    y = torch.empty_like(x)
+
+    # pre-compile kernel to get register usage and compute thread occupancy.
+    kernel = softmax_kernel.warmup(y, x, x.stride(0), y.stride(0), n_rows, n_cols, BLOCK_SIZE=BLOCK_SIZE,
+                                   num_stages=num_stages, num_warps=num_warps, grid=(1, ))
+    kernel._init_handles()
+    n_regs = kernel.n_regs
+    size_smem = kernel.metadata.shared
+    if is_hip():
+        # NUM_REGS represents the number of regular purpose registers. On CDNA architectures this is half of all registers available.
+        # However, this is not always the case. In most cases all registers can be used as regular purpose registers.
+        # ISA SECTION (3.6.4 for CDNA3)
+        # VGPRs are allocated out of two pools: regular VGPRs and accumulation VGPRs. Accumulation VGPRs are used
+        # with matrix VALU instructions, and can also be loaded directly from memory. A wave may have up to 512 total
+        # VGPRs, 256 of each type. When a wave has fewer than 512 total VGPRs, the number of each type is flexible - it is
+        # not required to be equal numbers of both types.
+        NUM_GPRS = NUM_REGS
+        if is_cdna():
+            NUM_GPRS = NUM_REGS * 2
+
+        # MAX_NUM_THREADS represents maximum number of resident threads per multi-processor.
+        # When we divide this number with WARP_SIZE we get maximum number of waves that can
+        # execute on a CU (multi-processor)  in parallel.
+        MAX_NUM_THREADS = properties["max_threads_per_sm"]
+        max_num_waves = MAX_NUM_THREADS // WARP_SIZE
+        occupancy = min(NUM_GPRS // WARP_SIZE // n_regs, max_num_waves) // num_warps
     else:
-        num_stages=1
+        occupancy = NUM_REGS // (n_regs * WARP_SIZE * num_warps)
+    occupancy = min(occupancy, SIZE_SMEM // size_smem)
+    num_programs = NUM_SM * occupancy
 
-    size=x.size()
+    num_programs = min(num_programs, n_rows)
 
-    warp=size/BLOCK_SIZE
-
-
-
-    softmax_kernel[(grid,num_warps=num_warps)](
-        n_cols,
-        input_ptr,
-        input_row_stride,
-        output_ptr,
-        output_row_stride,
-        BLOCK_SIZE=BLOCK_SIZE,
-        num_stages=num_stages
-        )
-
-
+    # Create a number of persistent programs.
+    kernel[(num_programs, 1, 1)](y, x, x.stride(0), y.stride(0), n_rows, n_cols, BLOCK_SIZE, num_stages)
+    return y
