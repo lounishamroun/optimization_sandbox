@@ -100,8 +100,6 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
         '''
 
         row_start_ptr = input_ptr + row_idx * input_row_stride
-        
-
         col_offsets = tl.arange(0, BLOCK_SIZE) 
         
         ''' /!\ Physical vs BLOCK_SIZE padding /!\ 
@@ -122,6 +120,15 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
         '''
         input_ptrs = row_start_ptr + col_offsets #Shift the input pointer by offsets.
         mask = col_offsets < n_cols
+        
+        # If you're familiar with CUDA, this is analogous to computing per-thread
+        # addresses in a block:
+        #
+        # int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        #
+        # Here, `row_idx * input_row_stride` gives the start of the row,
+        # and `tl.arange(0, BLOCK_SIZE)` gives the per-element offsets inside
+        # that row, similar to `threadIdx.x`.
 
         ''' Since we want our BLOCK_SIZE to be the next power of 2 wrt the number of columns of the original tensor, 
             let's take the following case:
