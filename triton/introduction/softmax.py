@@ -182,11 +182,22 @@ def softmax(x):
     # The block size of each loop iteration is the smallest power of two greater than the number of columns in `x`
     BLOCK_SIZE = triton.next_power_of_2(n_cols)
 
-    # Another trick we can use is to ask the compiler to use more threads per row by
-    # increasing the number of warps (`num_warps`) over which each row is distributed.
-    # You will see in the next tutorial how to auto-tune this value in a more natural
-    # way so you don't have to come up with manual heuristics yourself.
     num_warps = 8
+    
+    """
+    Conceptually, block i can handle row i of a matrix, so multiple rows
+    can be processed in parallel by multiple blocks.
+
+    Inside each block, the row's work is further split among the threads
+    of that block. For example, different threads can process different
+    columns/components of the row.
+
+    The GPU actually executes those threads in groups called warps
+    (usually 32 threads). So block-level parallelism is made of smaller
+    warp-level execution underneath.
+    
+    """
+    
 
     # Number of software pipelining stages.
     num_stages = 4 if SIZE_SMEM > 200000 else 2
