@@ -31,6 +31,10 @@ hence we'll be able to apply 3 kernels in parallel on 3 different portion of our
    
 '''
 
+''' TERMINOLOGY 
+VGPRs = vector general purpose registers
+
+'''
 
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -206,35 +210,63 @@ def softmax(x):
     y = torch.empty_like(x)
 
     # pre-compile kernel to get register usage and compute thread occupancy.
-    kernel = softmax_kernel.warmup(y, x, x.stride(0), y.stride(0), n_rows, n_cols, BLOCK_SIZE=BLOCK_SIZE,
-                                   num_stages=num_stages, num_warps=num_warps, grid=(1, ))
+    kernel = softmax_kernel.warmup(
+        y, 
+        x, 
+        x.stride(0), 
+        y.stride(0), 
+        n_rows, n_cols, 
+        BLOCK_SIZE=BLOCK_SIZE,
+        num_stages=num_stages, 
+        num_warps=num_warps, 
+        grid=(1, ))
+    
+    """
+    Retrieve kernel resource usage information in order to later
+    compare it against the GPU resource limits
+    (e.g. size_smem vs. SIZE_SMEM).
+    """
     kernel._init_handles()
     n_regs = kernel.n_regs
     size_smem = kernel.metadata.shared
-    if is_hip():
-        # NUM_REGS represents the number of regular purpose registers. On CDNA architectures this is half of all registers available.
-        # However, this is not always the case. In most cases all registers can be used as regular purpose registers.
-        # ISA SECTION (3.6.4 for CDNA3)
-        # VGPRs are allocated out of two pools: regular VGPRs and accumulation VGPRs. Accumulation VGPRs are used
-        # with matrix VALU instructions, and can also be loaded directly from memory. A wave may have up to 512 total
-        # VGPRs, 256 of each type. When a wave has fewer than 512 total VGPRs, the number of each type is flexible - it is
-        # not required to be equal numbers of both types.
+    
+    
+    if is_hip(): # True when running on HIP/ROCm (AMD GPUs)
+        '''
+        Simplified explanation:
+            AMD NUM_REGS already represents the full register count,
+            while CUDA NUM_REGS represents only half of the available registers (we will not get into details of why).
+        '''
         NUM_GPRS = NUM_REGS
         if is_cdna():
-            NUM_GPRS = NUM_REGS * 2
+            NUM_GPRS = NUM_REGS * 2 
 
-        # MAX_NUM_THREADS represents maximum number of resident threads per multi-processor.
-        # When we divide this number with WARP_SIZE we get maximum number of waves that can
-        # execute on a CU (multi-processor)  in parallel.
         MAX_NUM_THREADS = properties["max_threads_per_sm"]
-        max_num_waves = MAX_NUM_THREADS // WARP_SIZE
+        max_num_waves = MAX_NUM_THREADS // WARP_SIZE # Number of warps/wavefronts that can run concurrently on one SM/CU
+        
+        
+        """
+        Terminology mapping between AMD and NVIDIA/CUDA architectures:
+        
+        - AMD "compute unit" (CU) ~= NVIDIA "streaming multiprocessor" (SM)
+        - AMD "wave" or "wavefront" ~= NVIDIA "warp"
+        """
+
         occupancy = min(NUM_GPRS // WARP_SIZE // n_regs, max_num_waves) // num_warps
     else:
-        occupancy = NUM_REGS // (n_regs * WARP_SIZE * num_warps)
-    occupancy = min(occupancy, SIZE_SMEM // size_smem)
+        occupancy = NUM_REGS // (n_regs * WARP_SIZE * num_warps) #register level.
+    occupancy = min(occupancy, SIZE_SMEM // size_smem) #register vs shared memory occupancy
     num_programs = NUM_SM * occupancy
 
     num_programs = min(num_programs, n_rows)
+    
+    ''' OCCUPANCY 
+    
+    
+    
+    
+    '''
+    
 
     # Create a number of persistent programs.
     kernel[(num_programs, 1, 1)](y, x, x.stride(0), y.stride(0), n_rows, n_cols, BLOCK_SIZE, num_stages)
@@ -275,3 +307,5 @@ def benchmark(M, N, provider):
 
 
 benchmark.run(show_plots=True, print_data=True)
+
+
