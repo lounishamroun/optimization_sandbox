@@ -1,7 +1,7 @@
 import torch
-import triton_kernels
-import triton_kernels.language as tl
-from triton_kernels.runtime import driver
+import triton
+import triton.language as tl
+from triton.runtime import driver
 import numpy as np
 import statistics
 import pandas as pd 
@@ -40,11 +40,11 @@ VGPRs = vector general purpose registers
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def is_hip():
-    return triton_kernels.runtime.driver.active.get_current_target().backend == "hip"
+    return triton.runtime.driver.active.get_current_target().backend == "hip"
 
 
 def is_cdna():
-    return is_hip() and triton_kernels.runtime.driver.active.get_current_target().arch in ('gfx940', 'gfx941', 'gfx942',
+    return is_hip() and triton.runtime.driver.active.get_current_target().arch in ('gfx940', 'gfx941', 'gfx942',
                                                                                    'gfx90a', 'gfx908')
 
 
@@ -70,7 +70,7 @@ def naive_softmax(logits): # N*D
     
 
 '''_ I KERNEL _'''
-@triton_kernels.jit
+@triton.jit
 def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n_rows, n_cols, BLOCK_SIZE: tl.constexpr,
                    num_stages: tl.constexpr):
     # starting row of the program
@@ -178,7 +178,7 @@ NUM_SM = properties["multiprocessor_count"]
 NUM_REGS = properties["max_num_regs"]
 SIZE_SMEM = properties["max_shared_mem"]
 WARP_SIZE = properties["warpSize"]
-target = triton_kernels.runtime.driver.active.get_current_target()
+target = triton.runtime.driver.active.get_current_target()
 kernels = {}
 
 
@@ -186,7 +186,7 @@ def softmax(x):
     n_rows, n_cols = x.shape
 
     # The block size of each loop iteration is the smallest power of two greater than the number of columns in `x`
-    BLOCK_SIZE = triton_kernels.next_power_of_2(n_cols)
+    BLOCK_SIZE = triton.next_power_of_2(n_cols)
 
     num_warps = 8 # Note that this value can be auto-tuned, but we will not explain how in this section.
     
@@ -294,8 +294,8 @@ def softmax(x):
     return y
 
 
-@triton_kernels.testing.perf_report(
-    triton_kernels.testing.Benchmark(
+@triton.testing.perf_report(
+    triton.testing.Benchmark(
         x_names=['N'],  # argument names to use as an x-axis for the plot
         x_vals=[128 * i for i in range(2, 100)],  # different possible values for `x_name`
         line_arg='provider',  # argument name whose value corresponds to a different line in the plot
@@ -311,12 +311,12 @@ def benchmark(M, N, provider):
     stream = getattr(torch, DEVICE.type).Stream()
     getattr(torch, DEVICE.type).set_stream(stream)
     if provider == 'torch':
-        ms = triton_kernels.testing.do_bench(lambda: torch.softmax(x, axis=-1)) #Torch native Softmax function
+        ms = triton.testing.do_bench(lambda: torch.softmax(x, axis=-1)) #Torch native Softmax function
         #'do_bench' needs a calable object that's why use 'lambda' instead of a function call to 'softmax()'.
     if provider == 'triton':
-        ms = triton_kernels.testing.do_bench(lambda: softmax(x)) #Our Kernel
+        ms = triton.testing.do_bench(lambda: softmax(x)) #Our Kernel
     if provider == 'naive_softmax':
-        ms = triton_kernels.testing.do_bench(lambda: naive_softmax(x))
+        ms = triton.testing.do_bench(lambda: naive_softmax(x))
     gbps = lambda ms: 2 * x.numel() * x.element_size() * 1e-9 / (ms * 1e-3)
     #2 * (n elements of the matrix * size of each elements in bytes)* 1e-9 / (duration in ms * 1e-3) 
     '''
