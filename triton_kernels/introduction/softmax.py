@@ -63,7 +63,7 @@ def naive_softmax(logits): # N*D
     # Subtract the row-wise maximum to avoid numerical overflow while
     # preserving the same softmax output 
     #N*D - N*1
-    numerator=torch.exp(logits)
+    numerator=torch.exp(z)
     denominator=numerator.sum(dim=1) #sum logits for each neuron
     softmax=numerator/denominator.unsqueeze(1) #Add a dimension, equivalent to [:,None]
     return softmax
