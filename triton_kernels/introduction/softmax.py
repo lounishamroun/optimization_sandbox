@@ -56,7 +56,6 @@ The kernel applies softmax independently to each row.
 '''
 def naive_softmax(logits): # N*D
     x_max = logits.max(dim=1)[0] 
-    print(f'From x tensor of shape : {logits.shape}, \n we substract the max values (shape:{x_max[:,None].shape}) of each row from it')
     z=logits-x_max.unsqueeze(1) 
     # Subtract the row-wise maximum to avoid numerical overflow while
     # preserving the same softmax output 
