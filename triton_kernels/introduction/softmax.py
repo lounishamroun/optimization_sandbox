@@ -6,7 +6,6 @@ import numpy as np
 import statistics
 import pandas as pd 
 import matplotlib.pyplot as plt 
-from boilerplates.reverse_engineering import reverse_engineer_debug_ as red 
 
 
 ''' KEY TRITON CONCEPTS
@@ -36,8 +35,7 @@ VGPRs = vector general purpose registers
 
 '''
 
-
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+DEVICE = torch.device('cuda', torch.cuda.current_device()) if torch.cuda.is_available() else torch.device('cpu')
 
 def is_hip():
     return triton.runtime.driver.active.get_current_target().backend == "hip"
@@ -127,14 +125,17 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
         input_ptrs = row_start_ptr + col_offsets #Shift the input pointer by offsets.
         mask = col_offsets < n_cols
         
-        # If you're familiar with CUDA, this is analogous to computing per-thread
-        # addresses in a block:
-        #
-        # int idx = blockIdx.x * blockDim.x + threadIdx.x;
-        #
-        # Here, `row_idx * input_row_stride` gives the start of the row,
-        # and `tl.arange(0, BLOCK_SIZE)` gives the per-element offsets inside
-        # that row, similar to `threadIdx.x`.
+        
+        '''  If you're familiar with CUDA, this is analogous to computing per-thread
+        addresses in a block: int idx = blockIdx.x * blockDim.x + threadIdx.x;
+            Here, `row_idx * input_row_stride` gives the start of the row,
+            and `tl.arange(0, BLOCK_SIZE)` gives the per-element offsets inside
+            that row, similar to `threadIdx.x`.
+            
+            /!\ DISCLAIMER /!\  
+            In CUDA, we often think in terms of individual threads. 
+            In Triton, we write vectorized operations over blocks of elements, and the compiler maps that program to GPU execution using warps. 
+        '''
 
         ''' Since we want our BLOCK_SIZE to be the next power of 2 wrt the number of columns of the original tensor, 
             let's take the following case:
@@ -145,7 +146,7 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
 
                 However since our true tensor has only 3 columns we'll mask the last column.
                 
-                mask=col_offsets<n_cols => The last column will be masked as such : [0,1,2,-infinity], we apply a sort of "padding".
+                mask=col_offsets<n_cols => The last column will be masked as such : mask = [True, True, True, False], we apply a sort of "padding".
 
         '''
 
@@ -172,6 +173,8 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
 
 '''_ II - HELPER FUNCTION _'''
 
+if DEVICE.type == 'cpu':
+    raise RuntimeError("This Triton softmax kernel requires a CUDA/ROCm GPU, but torch.cuda.is_available() is False.")
 
 properties = driver.active.utils.get_device_properties(DEVICE.index)
 NUM_SM = properties["multiprocessor_count"]
@@ -339,6 +342,23 @@ benchmark.run(show_plots=True, print_data=True)
 
 Resident = threads that are currently allocated resources and can run concurrently inside a Streaming Multiprocessor (SM).
 
+'''
+
+
+''' Conclusion
+
+Naive PyTorch:
+read -> max
+read -> subtract
+read -> exp
+read -> sum
+read -> divide
+write intermediate tensors
+
+Fused Triton:
+read row once
+compute max/exp/sum/divide on-chip
+write output once 
 
 
 '''

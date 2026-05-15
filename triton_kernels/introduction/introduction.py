@@ -1,6 +1,6 @@
 import torch
-import triton
-import triton.language as tl
+import triton_kernels
+import triton_kernels.language as tl
 import numpy as np
 import statistics
 import pandas as pd 
@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-@triton.jit
+@triton_kernels.jit
 def _add_kernel(x_ptr, #private function
                y_ptr,  
                output_ptr,  
@@ -54,7 +54,7 @@ def add(x: torch.Tensor, y: torch.Tensor):
     
     # The SPMD launch grid denotes the number of kernel instances that run in parallel.
         
-    grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
+    grid = lambda meta: (triton_kernels.cdiv(n_elements, meta['BLOCK_SIZE']), )
     
     
     _add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE) # => An helper function acts as an intermediate before calling the target function
@@ -168,8 +168,8 @@ def matplotlib_bench():
     plt.show()
     
 
-@triton.testing.perf_report(
-    triton.testing.Benchmark(
+@triton_kernels.testing.perf_report(
+    triton_kernels.testing.Benchmark(
         x_names=['size'],  
         x_vals=[2**i for i in range(12, 28, 1)],  
         x_log=True, 
@@ -187,10 +187,10 @@ def benchmark(size,provider):
     y=torch.rand(size,device=DEVICE,dtype=torch.float32)
     quantiles=[0.2,0.5,0.8]
     if provider=='triton':
-        ms,min_ms,max_ms=triton.testing.do_bench(lambda:add(x,y),quantiles=quantiles)
+        ms,min_ms,max_ms=triton_kernels.testing.do_bench(lambda:add(x,y),quantiles=quantiles)
         
     elif provider=='torch':
-        ms,min_ms,max_ms=triton.testing.do_bench(lambda:x+y,quantiles=quantiles)
+        ms,min_ms,max_ms=triton_kernels.testing.do_bench(lambda:x+y,quantiles=quantiles)
         
     gbps = lambda ms:3*x.numel()*x.element_size()*1e-9 /ms*1e-3 #=> N values of X * How much bytes per value * Conversion in GB
     return gbps(ms),gbps(min_ms),gbps(max_ms)
