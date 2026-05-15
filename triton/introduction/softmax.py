@@ -59,7 +59,9 @@ The kernel applies softmax independently to each row.
 def naive_softmax(logits): # N*D
     x_max = logits.max(dim=1)[0] 
     print(f'From x tensor of shape : {logits.shape}, \n we substract the max values (shape:{x_max[:,None].shape}) of each row from it')
-    z=logits-x_max.unsqueeze(1)
+    z=logits-x_max.unsqueeze(1) 
+    # Subtract the row-wise maximum to avoid numerical overflow while
+    # preserving the same softmax output 
     #N*D - N*1
     numerator=torch.exp(logits)
     denominator=numerator.sum(dim=1) #sum logits for each neuron
@@ -231,6 +233,22 @@ def softmax(x):
     size_smem = kernel.metadata.shared
     
     
+    ''' OCCUPANCY 
+    
+    <schema>
+    
+    
+    Note that even though there's a maximum number of registers per thread (depending on the architecture), 
+    the compiler will determine at compile time how many registers will be used by all concurrently running threads, 
+    since they all execute the same instructions.
+    
+    
+    
+    
+    '''
+    
+    
+    
     if is_hip(): # True when running on HIP/ROCm (AMD GPUs)
         '''
         Simplified explanation:
@@ -242,7 +260,7 @@ def softmax(x):
             NUM_GPRS = NUM_REGS * 2 
 
         MAX_NUM_THREADS = properties["max_threads_per_sm"]
-        max_num_waves = MAX_NUM_THREADS // WARP_SIZE # Number of warps/wavefronts that can run concurrently on one SM/CU
+        max_num_waves = MAX_NUM_THREADS // WARP_SIZE # Number of warps/wavefronts that can run concurrently on one CU
         
         
         """
@@ -251,21 +269,13 @@ def softmax(x):
         - AMD "compute unit" (CU) ~= NVIDIA "streaming multiprocessor" (SM)
         - AMD "wave" or "wavefront" ~= NVIDIA "warp"
         """
-
         occupancy = min(NUM_GPRS // WARP_SIZE // n_regs, max_num_waves) // num_warps
     else:
-        occupancy = NUM_REGS // (n_regs * WARP_SIZE * num_warps) #register level.
+        occupancy = NUM_REGS // (n_regs * WARP_SIZE * num_warps) # Available registers per SM divided by the number of registers used by a thread block
     occupancy = min(occupancy, SIZE_SMEM // size_smem) #register vs shared memory occupancy
     num_programs = NUM_SM * occupancy
 
-    num_programs = min(num_programs, n_rows)
-    
-    ''' OCCUPANCY 
-    
-    
-    
-    
-    '''
+    num_programs = min(num_programs, n_rows) 
     
 
     # Create a number of persistent programs.
