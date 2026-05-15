@@ -203,8 +203,6 @@ def softmax(x):
     warp-level execution underneath.
     
     """
-    
-
     # Number of software pipelining stages.
     num_stages = 4 if SIZE_SMEM > 200000 else 2
 
@@ -281,10 +279,17 @@ def softmax(x):
         
     else:
         occupancy = NUM_REGS // (n_regs * WARP_SIZE * num_warps) # Available registers per SM divided by the number of registers used by a thread block
-    occupancy = min(occupancy, SIZE_SMEM // size_smem) #register vs shared memory occupancy
+    occupancy = min(occupancy, SIZE_SMEM // size_smem) 
+    # size_smem is already the shared-memory requirement of one program/block instance,
+    # so SIZE_SMEM // size_smem gives the max resident programs per SM limited by shared memory.
     
+    """
+    We use 'min' because the final number of resident programs per SM is limited by the first resource bottleneck (e.g: shared memory).
+    Even if registers allow 8 programs per SM, if shared memory only allows 3 programs per SM, then only 3 programs can be resident.
+    So the real occupancy is the smallest capacity among the limiting resources.
+    """
     
-    num_programs = NUM_SM * occupancy
+    num_programs = NUM_SM * occupancy #How many programs can run given the total number of SM.
     num_programs = min(num_programs, n_rows) 
     #Launch enough programs to fill the GPU, but not more programs than rows.
     
