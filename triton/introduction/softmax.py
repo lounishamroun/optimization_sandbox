@@ -188,7 +188,7 @@ def softmax(x):
     # The block size of each loop iteration is the smallest power of two greater than the number of columns in `x`
     BLOCK_SIZE = triton.next_power_of_2(n_cols)
 
-    num_warps = 8
+    num_warps = 8 # Note that this value can be auto-tuned, but we will not explain how in this section.
     
     """
     Conceptually, block i can handle row i of a matrix, so multiple rows
@@ -235,15 +235,11 @@ def softmax(x):
     
     ''' OCCUPANCY 
     
-    <schema>
-    
+    #TO DO <schema>
     
     Note that even though there's a maximum number of registers per thread (depending on the architecture), 
     the compiler will determine at compile time how many registers will be used by all concurrently running threads, 
     since they all execute the same instructions.
-    
-    
-    
     
     '''
     
@@ -260,7 +256,7 @@ def softmax(x):
             NUM_GPRS = NUM_REGS * 2 
 
         MAX_NUM_THREADS = properties["max_threads_per_sm"]
-        max_num_waves = MAX_NUM_THREADS // WARP_SIZE # Number of warps/wavefronts that can run concurrently on one CU
+        max_num_waves = MAX_NUM_THREADS // WARP_SIZE # Maximum number of warps/wavefronts that can run concurrently on one CU (Theorical hardware capacity)
         
         
         """
@@ -269,13 +265,28 @@ def softmax(x):
         - AMD "compute unit" (CU) ~= NVIDIA "streaming multiprocessor" (SM)
         - AMD "wave" or "wavefront" ~= NVIDIA "warp"
         """
-        occupancy = min(NUM_GPRS // WARP_SIZE // n_regs, max_num_waves) // num_warps
+        
+        occupancy = min(NUM_GPRS // WARP_SIZE // n_regs, max_num_waves) // num_warps #8
+            # WARP_SIZE = Number of threads per warp.
+            # NUM_GPRS = Theoretical maximum number of registers that can be held by one CU.
+            # n_regs = Actual number of registers available in one CU.
+        """ 
+        For the AMD part, we first estimate how many waves can be resident on a Compute Unit based on register capacity.
+        Then we compare that number with the hardware maximum number of resident waves, which is why we use min().
+        After that, we divide by num_warps because each Triton program uses num_warps waves.
+        So the final result tells us how many Triton programs can fit inside one Compute Unit.
+        
+        => occupancy = number of programs which can run concurrently inside one Compute Unit.
+        """
+        
     else:
         occupancy = NUM_REGS // (n_regs * WARP_SIZE * num_warps) # Available registers per SM divided by the number of registers used by a thread block
     occupancy = min(occupancy, SIZE_SMEM // size_smem) #register vs shared memory occupancy
+    
+    
     num_programs = NUM_SM * occupancy
-
     num_programs = min(num_programs, n_rows) 
+    #Launch enough programs to fill the GPU, but not more programs than rows.
     
 
     # Create a number of persistent programs.
@@ -319,3 +330,10 @@ def benchmark(M, N, provider):
 benchmark.run(show_plots=True, print_data=True)
 
 
+'''     Vocab
+
+Resident = threads that are currently allocated resources and can run concurrently inside a Streaming Multiprocessor (SM).
+
+
+
+'''
