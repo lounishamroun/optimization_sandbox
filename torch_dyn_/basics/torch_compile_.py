@@ -1,5 +1,6 @@
 import torch
 from torch import _dynamo as torchdynamo
+from boilerplates import benchmarking as bm 
 
 """ 
 TorchDynamo is part of PyTorch’s *just-in-time compiler system. 
@@ -64,4 +65,5 @@ optimized CPU/GPU kernels
 class model(torch.nn):
    def __init__(self):
       super().__init__
+      self.linear=torch.linear()
       
