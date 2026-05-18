@@ -66,4 +66,11 @@ class model(torch.nn):
    def __init__(self):
       super().__init__
       self.linear=torch.linear()
-      
+
+
+""" 
+*custom_eval_frame -> check already compiled code in the cache.
+
+context manager -> c code
+
+"""
