@@ -1,5 +1,8 @@
 import torch
 
+"""
+Performance measurement with warmup
+"""
 def a_b_bench(fn_input,target_fn,warmup=20):
 
     torch.cuda.synchronize()
