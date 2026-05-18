@@ -1,4 +1,4 @@
-import triton
+import triton_kernels
 
 '''MULTIPLY A=(M,K) | B=(K,M) => A@B'''
 
