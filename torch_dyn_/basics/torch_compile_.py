@@ -37,7 +37,6 @@ def personalized_compiler(gm: torch.fx.graph,example_inputs:int):
 def toy_function(a,b):
     c=torch.exp(a) + torch.exp(b)
     return c*a
-
 for _ in range(100):
    rec_=toy_function(a=torch.randint(low=10,high=20,size=(1,1)),b=torch.randint(low=10,high=20,size=(1,1)))
 
@@ -73,21 +72,46 @@ FX graph of PyTorch tensor ops
 optimized CPU/GPU kernels
 
 """
+
+def custom_model_compiler(gm: torch.fx.graph,example_inputs): 
+    print("compiling...")
+    gm.graph.print_tabular()
+    return gm.forward #callable object (function) which will interpret the graph
+
+
 class toy_model(torch.nn.Module):
    def __init__(self):
       super().__init__()
-      self.linear=nn.linear(in_features=1024,out_features=64)
-      self.relu=nn.relu()
-      self.conv_1d=nn.conv1d(in_channels=64,out_channels=32,kernel_size=1)
-      self.conv_1d_bis=nn.conv1d(in_channels=32,out_channels=16,kernel_size=1)
-      
+      self.linear=nn.Linear(in_features=1024,out_features=64)
+      self.batch_norm=nn.BatchNorm1d(64)
+      self.relu=nn.ReLU()
+      self.conv_1d=nn.Conv1d(in_channels=64,out_channels=32,kernel_size=1)
+      self.batch_norm=nn.BatchNorm1d(32)
+      self.conv_1d_bis=nn.Conv1d(in_channels=32,out_channels=16,kernel_size=1)
+
    def forward(self,x):
-      n=nn.sequential(
-         self.linear(),
-         self.relu(),
-         self.conv_1d()
-      )
-      return n(x)
+      x=self.linear(x),
+      x=x[0].unsqueeze(0),
+      x=self.relu(x),
+      x=self.batch_norm(x),
+      x=self.conv_1d(x),
+      x=self.batch_norm(x),
+      x=self.conv_1d_bis(x),
+      return x
+
+optimized_model_instance=toy_model()
+
+@torchdynamo.optimize(custom_model_compiler)
+def wrapper(x):
+   toy_model.forward(x=x)
+for _ in range(50):
+   toy_model.forward(
+      self=optimized_model_instance,
+      x=(
+         torch.randn([1,torch.randint(1024,1025,[1])]
+         )
+            )
+                )
 
 
 """ 
