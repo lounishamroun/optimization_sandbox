@@ -78,8 +78,8 @@ class toy_model(torch.nn.Module):
       super().__init__()
       self.linear=nn.linear(in_features=1024,out_features=64)
       self.relu=nn.relu()
-      self.conv_1d=nn.conv1d(in_channels=64,out_channels=32,kernel=1)
-      self.conv_1d_bis=nn.conv1d(in_channels=32,out_channels=16,kernel=1)
+      self.conv_1d=nn.conv1d(in_channels=64,out_channels=32,kernel_size=1)
+      self.conv_1d_bis=nn.conv1d(in_channels=32,out_channels=16,kernel_size=1)
       
    def forward(self,x):
       n=nn.sequential(
