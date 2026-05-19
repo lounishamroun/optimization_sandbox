@@ -86,21 +86,36 @@ class toy_model(torch.nn.Module):
       self.batch_norm=nn.BatchNorm1d(64)
       self.relu=nn.ReLU()
       self.conv_1d=nn.Conv1d(in_channels=64,out_channels=32,kernel_size=1)
-      self.batch_norm=nn.BatchNorm1d(32)
+      self.batch_norm_2=nn.BatchNorm1d(32)
       self.conv_1d_bis=nn.Conv1d(in_channels=32,out_channels=16,kernel_size=1)
 
    def forward(self,x):
-      x=self.linear(x),
-      x=x[0].unsqueeze(0),
-      x=self.relu(x),
-      x=self.batch_norm(x),
-      x=self.conv_1d(x),
-      x=self.batch_norm(x),
-      x=self.conv_1d_bis(x),
+      x=self.linear(x)
+      print(type(x), x.shape)
+      x=self.batch_norm(x)
+      print(type(x), x.shape)
+      x=self.conv_1d(x)
+      print(type(x), x.shape)
+      x=self.relu(x)
+      print(type(x), x.shape)
+      x=self.batch_norm_2(x)
+      print(type(x), x.shape)
+      x=self.conv_1d_bis(x)
+      print(type(x), x.shape)
+      x=self.relu(x)
+      print(type(x), x.shape)
       return x
 
 optimized_model_instance=toy_model()
+print(optimized_model_instance)
 
+x=torch.randn((5,1024))
+print(type(x))
+
+optimized_model_instance(x.squeeze(0))
+
+
+"""
 @torchdynamo.optimize(custom_model_compiler)
 def wrapper(x):
    toy_model.forward(x=x)
@@ -112,7 +127,7 @@ for _ in range(50):
          )
             )
                 )
-
+"""
 
 """ 
 *custom_eval_frame -> check already compiled code in the cache.
