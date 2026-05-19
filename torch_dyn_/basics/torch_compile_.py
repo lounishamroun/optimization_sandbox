@@ -1,5 +1,6 @@
 import torch
 from torch import _dynamo as torchdynamo
+import torch.nn as nn
 import sys
 from pathlib import Path
 
@@ -72,20 +73,21 @@ FX graph of PyTorch tensor ops
 optimized CPU/GPU kernels
 
 """
-class unoptimized_model(torch.nn.Module):
+class toy_model(torch.nn.Module):
    def __init__(self):
       super().__init__()
-      self.linear=torch.linear(in_features=1024,out_features=64)
-      self.relu=torch.relu()
-      self.conv_1d=torch.conv1d(in_channels=64,out_channels=32)
-      self.conv_1d_bis=torch.conv1d(in_channels=64,out_channels=32)
+      self.linear=nn.linear(in_features=1024,out_features=64)
+      self.relu=nn.relu()
+      self.conv_1d=nn.conv1d(in_channels=64,out_channels=32,kernel=1)
+      self.conv_1d_bis=nn.conv1d(in_channels=32,out_channels=16,kernel=1)
       
-   def forward(x):
-      torch.nn.sequential(
+   def forward(self,x):
+      n=nn.sequential(
          self.linear(),
          self.relu(),
          self.conv_1d()
       )
+      return n(x)
 
 
 """ 
