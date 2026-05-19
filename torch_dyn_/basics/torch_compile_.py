@@ -1,6 +1,14 @@
 import torch
 from torch import _dynamo as torchdynamo
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+
 from boilerplates import benchmarking as bm 
+
 
 """ 
 TorchDynamo is part of PyTorch’s *just-in-time compiler system. 
@@ -30,7 +38,9 @@ def toy_function(a,b):
     return c*a
 
 for _ in range(100):
-    toy_function(a=torch.randint(low=10,high=20,size=(1,1)),b=torch.randint(low=10,high=20,size=(1,1)))
+   rec_=toy_function(a=torch.randint(low=10,high=20,size=(1,1)),b=torch.randint(low=10,high=20,size=(1,1)))
+
+
     
     
 """ 
@@ -62,10 +72,20 @@ FX graph of PyTorch tensor ops
 optimized CPU/GPU kernels
 
 """
-class model(torch.nn):
+class unoptimized_model(torch.nn.Module):
    def __init__(self):
-      super().__init__
-      self.linear=torch.linear()
+      super().__init__()
+      self.linear=torch.linear(in_features=1024,out_features=64)
+      self.relu=torch.relu()
+      self.conv_1d=torch.conv1d(in_channels=64,out_channels=32)
+      self.conv_1d_bis=torch.conv1d(in_channels=64,out_channels=32)
+      
+   def forward(x):
+      torch.nn.sequential(
+         self.linear(),
+         self.relu(),
+         self.conv_1d()
+      )
 
 
 """ 
