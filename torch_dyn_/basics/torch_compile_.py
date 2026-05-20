@@ -79,43 +79,35 @@ def custom_model_compiler(gm: torch.fx.graph,example_inputs):
     return gm.forward #callable object (function) which will interpret the graph
 
 
+""" TOY MODEL 
+
+Let's create a more complex function being the forward function of a Deep Learning model
+
+"""
+
 class toy_model(torch.nn.Module):
    def __init__(self):
       super().__init__()
-      self.linear=nn.Linear(in_features=1024,out_features=64)
-      self.batch_norm=nn.BatchNorm1d(64)
+      self.batch_norm=nn.BatchNorm1d(1024)
       self.relu=nn.ReLU()
-      self.conv_1d=nn.Conv1d(in_channels=64,out_channels=32,kernel_size=1)
-      self.batch_norm_2=nn.BatchNorm1d(32)
-      self.conv_1d_bis=nn.Conv1d(in_channels=32,out_channels=16,kernel_size=1)
+      self.conv_1d=nn.Conv1d(in_channels=1024,out_channels=512,kernel_size=2)
+      self.batch_norm_2=nn.BatchNorm1d(512)
+      self.conv_1d_bis=nn.Conv1d(in_channels=512,out_channels=16,kernel_size=3)
 
    def forward(self,x):
-      x=self.linear(x)
-      print(type(x), x.shape)
+      print(x.shape)
       x=self.batch_norm(x)
-      print(type(x), x.shape)
       x=self.conv_1d(x)
-      print(type(x), x.shape)
       x=self.relu(x)
-      print(type(x), x.shape)
       x=self.batch_norm_2(x)
-      print(type(x), x.shape)
       x=self.conv_1d_bis(x)
-      print(type(x), x.shape)
       x=self.relu(x)
-      print(type(x), x.shape)
       return x
 
+#we create an instance of our model
 optimized_model_instance=toy_model()
-print(optimized_model_instance)
 
-x=torch.randn((5,1024))
-print(type(x))
-
-optimized_model_instance(x.squeeze(0))
-
-
-"""
+""" We let the torchdynamo decorator optimize our function"""
 @torchdynamo.optimize(custom_model_compiler)
 def wrapper(x):
    toy_model.forward(x=x)
@@ -123,11 +115,11 @@ for _ in range(50):
    toy_model.forward(
       self=optimized_model_instance,
       x=(
-         torch.randn([1,torch.randint(1024,1025,[1])]
+         torch.randn([1000,torch.randint(1024,1025,[1]),100] #1000 samples | 1024 features | sequence length = 100 frames
          )
             )
                 )
-"""
+
 
 """ 
 *custom_eval_frame -> check already compiled code in the cache.
