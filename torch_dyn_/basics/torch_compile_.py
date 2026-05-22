@@ -95,7 +95,6 @@ class toy_model(torch.nn.Module):
       self.conv_1d_bis=nn.Conv1d(in_channels=512,out_channels=16,kernel_size=3)
 
    def forward(self,x):
-      print(x.shape)
       x=self.batch_norm(x)
       x=self.conv_1d(x)
       x=self.relu(x)
@@ -109,16 +108,14 @@ optimized_model_instance=toy_model()
 
 """ We let the torchdynamo decorator optimize our function"""
 @torchdynamo.optimize(custom_model_compiler)
-def wrapper(x):
-   toy_model.forward(x=x)
+def wrapper(model,x):
+   return model(x)
 for _ in range(50):
-   toy_model.forward(
-      self=optimized_model_instance,
-      x=(
+   wrapper(model=optimized_model_instance,x=(
          torch.randn([1000,torch.randint(1024,1025,[1]),100] #1000 samples | 1024 features | sequence length = 100 frames
          )
             )
-                )
+         )
 
 
 """ 
@@ -127,3 +124,9 @@ for _ in range(50):
 context manager -> c code
 
 """
+
+if __name__ == "__main__":
+   import depyf
+   logits=torch.randn(1000,1024)
+   with depyf.prepare_debug("./dump_src_dir"):
+      wrapper(model=optimized_model_instance,x=logits)
