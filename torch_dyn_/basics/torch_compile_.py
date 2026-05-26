@@ -40,8 +40,6 @@ def toy_function(a,b):
 for _ in range(100):
    rec_=toy_function(a=torch.randint(low=10,high=20,size=(1,1)),b=torch.randint(low=10,high=20,size=(1,1)))
 
-
-    
     
 """ 
 
@@ -97,9 +95,9 @@ class toy_model(torch.nn.Module):
    def forward(self,x):
       print(x.shape)
       x=self.batch_norm(x)
-      x=torch.movedim(x,(0,1),(1,0))
-      x=self.conv_1d(x)
-      print(x.shape)
+      print(f"After dim switch: {x.shape}")
+      x=self.conv_1d(x) # (N=batch size,C​=channels/features,L=sequence length)
+      print(f"After conv 1d: {x.shape}")
       x=self.relu(x)
       x=self.batch_norm_2(x)
       x=self.conv_1d_bis(x)
@@ -128,7 +126,7 @@ for _ in range(50):
 
 if __name__ == "__main__":
    import depyf
-   logits=torch.randn(1000,1024)
+   logits=torch.randn(1000,1024,100)
    optimized_model_instance(logits)
    """
    with depyf.prepare_debug("./dump_src_dir"):
