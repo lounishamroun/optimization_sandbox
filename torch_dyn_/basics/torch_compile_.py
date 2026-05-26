@@ -95,8 +95,11 @@ class toy_model(torch.nn.Module):
       self.conv_1d_bis=nn.Conv1d(in_channels=512,out_channels=16,kernel_size=3)
 
    def forward(self,x):
+      print(x.shape)
       x=self.batch_norm(x)
+      x=torch.movedim(x,(0,1),(1,0))
       x=self.conv_1d(x)
+      print(x.shape)
       x=self.relu(x)
       x=self.batch_norm_2(x)
       x=self.conv_1d_bis(x)
@@ -106,7 +109,7 @@ class toy_model(torch.nn.Module):
 #we create an instance of our model
 optimized_model_instance=toy_model()
 
-""" We let the torchdynamo decorator optimize our function"""
+""" We let the torchdynamo decorator optimize our function
 @torchdynamo.optimize(custom_model_compiler)
 def wrapper(model,x):
    return model(x)
@@ -116,17 +119,18 @@ for _ in range(50):
          )
             )
          )
-
-
-""" 
-*custom_eval_frame -> check already compiled code in the cache.
-
-context manager -> c code
-
 """
+
+ 
+#*custom_eval_frame -> check already compiled code in the cache.
+#context manager -> c code
+
 
 if __name__ == "__main__":
    import depyf
    logits=torch.randn(1000,1024)
+   optimized_model_instance(logits)
+   """
    with depyf.prepare_debug("./dump_src_dir"):
       wrapper(model=optimized_model_instance,x=logits)
+   """
