@@ -107,7 +107,7 @@ class toy_model(torch.nn.Module):
 #we create an instance of our model
 optimized_model_instance=toy_model()
 
-""" We let the torchdynamo decorator optimize our function
+""" We let the torchdynamo decorator optimize our function """
 @torchdynamo.optimize(custom_model_compiler)
 def wrapper(model,x):
    return model(x)
@@ -117,7 +117,7 @@ for _ in range(50):
          )
             )
          )
-"""
+
 
  
 #*custom_eval_frame -> check already compiled code in the cache.
@@ -128,7 +128,6 @@ if __name__ == "__main__":
    import depyf
    logits=torch.randn(1000,1024,100)
    optimized_model_instance(logits)
-   """
    with depyf.prepare_debug("./dump_src_dir"):
       wrapper(model=optimized_model_instance,x=logits)
-   """
+   
