@@ -6,6 +6,7 @@ from pathlib import Path
 from depyf import decompile
 from torch._dynamo.eval_frame import _debug_get_cache_entry_list, innermost_fn
 import dis
+from boilerplates import benchmarking as bm
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -120,8 +121,6 @@ for _ in range(50):
          )
             )
          )
-
-
  
 #*custom_eval_frame -> check already compiled code in the cache.
 #context manager -> c code
@@ -140,6 +139,6 @@ if __name__ == "__main__":
    
    optimized_model(model=model_instance,x=logits)
 
-   dis_code=inspect_optimized_fn(optimized_model)
+   #dis_code=inspect_optimized_fn(optimized_model)
    
-   print(dis_code)
+   bm.a_b_timing_bench(fn_a=model_instance(),args_a=logits,fn_b=optimized_model(),args_b=(model_instance,logits))
