@@ -3,6 +3,9 @@ from torch import _dynamo as torchdynamo
 import torch.nn as nn
 import sys
 from pathlib import Path
+from depyf import decompile
+from torch._dynamo.eval_frame import _debug_get_cache_entry_list, innermost_fn
+import dis
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -105,14 +108,14 @@ class toy_model(torch.nn.Module):
       return x
 
 #we create an instance of our model
-optimized_model_instance=toy_model()
+model_instance=toy_model()
 
 """ We let the torchdynamo decorator optimize our function """
 @torchdynamo.optimize(custom_model_compiler)
-def wrapper(model,x):
+def optimized_model(model,x):
    return model(x)
 for _ in range(50):
-   wrapper(model=optimized_model_instance,x=(
+   optimized_model(model=model_instance,x=(
          torch.randn([1000,torch.randint(1024,1025,[1]),100] #1000 samples | 1024 features | sequence length = 100 frames
          )
             )
@@ -123,11 +126,20 @@ for _ in range(50):
 #*custom_eval_frame -> check already compiled code in the cache.
 #context manager -> c code
 
+def inspect_optimized_fn(fn):
+   cache_entries = _debug_get_cache_entry_list(innermost_fn(fn))
+   cache_entry = cache_entries[0]
+   code = cache_entry.code
+   return dis.dis(code)
+   
 
 if __name__ == "__main__":
-   import depyf
+  
    logits=torch.randn(1000,1024,100)
-   optimized_model_instance(logits)
-   with depyf.prepare_debug("./dump_src_dir"):
-      wrapper(model=optimized_model_instance,x=logits)
+   model_instance(logits)
    
+   optimized_model(model=model_instance,x=logits)
+
+   dis_code=inspect_optimized_fn(optimized_model)
+   
+   print(dis_code)
