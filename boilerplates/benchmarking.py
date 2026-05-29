@@ -4,6 +4,10 @@ import torch
 This function enables its user to compare the execution timing of:
     - `fn_input` V.S `target_fn`.
 
+Args :
+    - fn_a : Any callable.
+    - args_a : Arguments that this callabl will take in order for it to execute.
+
 Features:
     - Performance measurement with warmup option:
         -> e.g: warmup=20, will run
@@ -17,6 +21,7 @@ def a_b_timing_bench(fn_a,
     if not torch.cuda.is_available():
         warnings.warn("No CUDA instance detected.")
  
+
     torch.cuda.synchronize()
     start_fn_a=torch.cuda.Event(enable_timing=True)
     start_fn_b=torch.cuda.Event(enable_timing=True)
