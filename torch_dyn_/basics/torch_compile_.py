@@ -7,12 +7,7 @@ from depyf import decompile
 from torch._dynamo.eval_frame import _debug_get_cache_entry_list, innermost_fn
 import dis
 from boilerplates import benchmarking as bm
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(PROJECT_ROOT))
-
-
-from boilerplates import benchmarking as bm 
+import os
 
 
 """ 
@@ -115,7 +110,7 @@ model_instance=toy_model()
 @torchdynamo.optimize(custom_model_compiler)
 def optimized_model(model,x):
    return model(x)
-for _ in range(50):
+for _ in range(10):
    optimized_model(model=model_instance,x=(
          torch.randn([1000,torch.randint(1024,1025,[1]),100] #1000 samples | 1024 features | sequence length = 100 frames
          )
@@ -134,6 +129,11 @@ def inspect_optimized_fn(fn):
 
 if __name__ == "__main__":
   
+   PROJECT_ROOT = Path(__file__).resolve().parents[2]
+   print(PROJECT_ROOT)
+   sys.path.insert(0, str(PROJECT_ROOT))
+
+
    logits=torch.randn(1000,1024,100)
    model_instance(logits)
    
@@ -141,4 +141,4 @@ if __name__ == "__main__":
 
    #dis_code=inspect_optimized_fn(optimized_model)
    
-   bm.a_b_timing_bench(fn_a=model_instance(),args_a=logits,fn_b=optimized_model(),args_b=(model_instance,logits))
+   eager_model_timing,optimized_model_timing=bm.a_b_timing_bench(fn_a=model_instance(),args_a=logits,fn_b=optimized_model(),args_b=(model_instance,logits))

@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: optimization-sandbox
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.13
+Description-Content-Type: text/markdown
+Requires-Dist: depyf>=0.20.0
+Requires-Dist: numpy>=2.4.3
+Requires-Dist: tabulate>=0.10.0
+Requires-Dist: torch>=2.10.0
+Requires-Dist: triton>=3.6.0
+
+# optimization_sandbox
