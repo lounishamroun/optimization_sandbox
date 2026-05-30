@@ -20,23 +20,16 @@ def a_b_timing_bench(fn_a,
                      fn_b,
                      args_b,
                      warmup=None):
-    args_a = args_a if isinstance(args_a, tuple) else (args_a,)
-    args_b = args_b if isinstance(args_b, tuple) else (args_b,)
 
-    use_cuda_events = torch.cuda.is_available() and any(
-        isinstance(arg, torch.Tensor) and arg.is_cuda for arg in (*args_a, *args_b)
-    )
-
-    if not use_cuda_events:
+    if not torch.cuda.is_available():
         warnings.warn("No CUDA tensors detected. Falling back to CPU wall-clock timing.")
     
     #warmup bench
     if warmup is not None:
         for _ in range(warmup):
-            fn_a(*args_a)
-            fn_b(*args_b)
+            fn_a(args_a)
+            fn_b(args_b)
     
-    if use_cuda_events:
         start_fn_a=torch.cuda.Event(enable_timing=True)
         start_fn_b=torch.cuda.Event(enable_timing=True)
         end_fn_a=torch.cuda.Event(enable_timing=True)
@@ -45,13 +38,13 @@ def a_b_timing_bench(fn_a,
         #real bench
         torch.cuda.synchronize() #SYNC fn_a
         start_fn_a.record()
-        fn_a(*args_a)
+        fn_a(args_a)
         end_fn_a.record()
         torch.cuda.synchronize() #SYNC fn_a
 
         torch.cuda.synchronize() #SYNC fn_b
         start_fn_b.record()
-        fn_b(*args_b)
+        fn_b(args_b)
         end_fn_b.record()
         torch.cuda.synchronize() #SYNC fn_b
 
@@ -59,11 +52,11 @@ def a_b_timing_bench(fn_a,
         fn_b_timing=start_fn_b.elapsed_time(end_fn_b) #elapsed time fn_b
     else:
         start_fn_a = time.perf_counter()
-        fn_a(*args_a)
+        fn_a(args_a)
         fn_a_timing = (time.perf_counter() - start_fn_a) * 1000
 
         start_fn_b = time.perf_counter()
-        fn_b(*args_b)
+        fn_b(args_b[0],args_b[1])
         fn_b_timing = (time.perf_counter() - start_fn_b) * 1000
     
     print(f'Function A duration = {fn_a_timing} ms | Function B duration = {fn_b_timing} ms ')
