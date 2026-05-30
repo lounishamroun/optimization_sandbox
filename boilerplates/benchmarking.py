@@ -16,7 +16,7 @@ def a_b_timing_bench(fn_a,
                      args_a,
                      fn_b,
                      args_b,
-                     warmup=None|int):
+                     warmup=None):
     
     if not torch.cuda.is_available():
         warnings.warn("No CUDA instance detected.")
@@ -28,8 +28,8 @@ def a_b_timing_bench(fn_a,
     end_fn_a=torch.cuda.Event(enable_timing=True)
     end_fn_b=torch.cuda.Event(enable_timing=True)
     
-    if warmup is not None:
     #warmup bench
+    if warmup is not None:
         for _ in range(warmup):
             fn_a(*args_a)
             fn_b(*args_b)

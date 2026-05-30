@@ -128,10 +128,6 @@ def inspect_optimized_fn(fn):
    
 
 if __name__ == "__main__":
-  
-   PROJECT_ROOT = Path(__file__).resolve().parents[2]
-   print(PROJECT_ROOT)
-   sys.path.insert(0, str(PROJECT_ROOT))
 
 
    logits=torch.randn(1000,1024,100)
@@ -141,4 +137,4 @@ if __name__ == "__main__":
 
    #dis_code=inspect_optimized_fn(optimized_model)
    
-   eager_model_timing,optimized_model_timing=bm.a_b_timing_bench(fn_a=model_instance(),args_a=logits,fn_b=optimized_model(),args_b=(model_instance,logits))
+   eager_model_timing,optimized_model_timing=bm.a_b_timing_bench(fn_a=model_instance,args_a=logits,fn_b=optimized_model,args_b=(model_instance,logits))
