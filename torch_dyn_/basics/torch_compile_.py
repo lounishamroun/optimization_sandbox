@@ -94,9 +94,7 @@ class toy_model(torch.nn.Module):
    def forward(self,x):
       print(x.shape)
       x=self.batch_norm(x)
-      print(f"After dim switch: {x.shape}")
       x=self.conv_1d(x) # (N=batch size,C​=channels/features,L=sequence length)
-      print(f"After conv 1d: {x.shape}")
       x=self.relu(x)
       x=self.batch_norm_2(x)
       x=self.conv_1d_bis(x)
@@ -105,6 +103,7 @@ class toy_model(torch.nn.Module):
 
 #we create an instance of our model
 model_instance=toy_model()
+
 
 """ We let the torchdynamo decorator optimize our function """
 @torchdynamo.optimize(custom_model_compiler)
@@ -129,12 +128,11 @@ def inspect_optimized_fn(fn):
 
 if __name__ == "__main__":
 
-
    logits=torch.randn(1000,1024,100)
-   model_instance(logits)
    
-   optimized_model(model=model_instance,x=logits)
-
-   #dis_code=inspect_optimized_fn(optimized_model)
-   
-   eager_model_timing,optimized_model_timing=bm.a_b_timing_bench(fn_a=model_instance,args_a=logits,fn_b=optimized_model,args_b=(model_instance,logits))
+   eager_model_timing,optimized_model_timing=bm.a_b_timing_bench(
+      fn_a=model_instance,
+      args_a=(logits,),
+      fn_b=optimized_model,
+      args_b=(model_instance, logits)
+      )
