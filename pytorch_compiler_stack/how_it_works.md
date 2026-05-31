@@ -22,6 +22,6 @@ Example: *aten.cos* applies the cosine operation to a tensor.
 
 Torch Inductor (or another backend) takes this intermediate representation (FX graph) and compiles it into optimized code.
 
-In Python, the default eval-frame function executes bytecode for each frame. TorchDynamo installs its own frame handler, which intercepts execution and compiles suitable regions of code into optimized versions.
+In Python, the default eval-frame function executes bytecode for each frame. **TorchDynamo installs its own frame handler**, which intercepts execution and compiles suitable regions of code into optimized versions.
 
 A cache miss happens when Dynamo cannot reuse a previously compiled version of a region because no cached version matches the current inputs and guards.
