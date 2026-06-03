@@ -128,6 +128,6 @@ def inspect_optimized_fn(fn):
 
 if __name__ == "__main__":
 
-   logits=torch.randn(1000,1024,100)
+   logits=torch.randn(50000,1024,100)
    
    eager_model_timing,optimized_model_timing=bm.a_b_timing_bench(fn_a=model_instance,args_a=logits,fn_b=optimized_model,args_b=(model_instance,logits))
