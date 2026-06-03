@@ -109,7 +109,7 @@ model_instance=toy_model()
 @torchdynamo.optimize(custom_model_compiler)
 def optimized_model(model,x):
    return model(x)
-for _ in range(10):
+for _ in range(50):
    optimized_model(model=model_instance,x=(
          torch.randn([1000,torch.randint(1024,1025,[1]),100] #1000 samples | 1024 features | sequence length = 100 frames
          )
@@ -128,6 +128,6 @@ def inspect_optimized_fn(fn):
 
 if __name__ == "__main__":
 
-   logits=torch.randn(50000,1024,100)
+   logits=torch.randn(6000,1024,100)
    
    eager_model_timing,optimized_model_timing=bm.a_b_timing_bench(fn_a=model_instance,args_a=logits,fn_b=optimized_model,args_b=(model_instance,logits))

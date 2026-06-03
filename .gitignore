@@ -3,3 +3,4 @@ playground.py
 __pycache__
 .swp
 ./dump_src_dir
+*.egg-info

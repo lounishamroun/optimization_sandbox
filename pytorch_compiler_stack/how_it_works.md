@@ -1,5 +1,12 @@
 # Compilation in PyTorch
 
+We take a string representing python code, compile it into bytecode using 'CPython' and executing it on Python virtual machine.
+
+CPython is both a compiler and an interpreter. It first compiles Python source code into bytecode, then the Python Virtual Machine interprets and executes that bytecode.
+
+Note: CodeObject are generated at compile time (static) while FrameObject are generated at runtime (dynamic) with info about what is currently happening with the code.
+
+
 ## Torch Dynamo
 
 TorchDynamo intercepts Python frame execution, analyzes the function’s bytecode, and traces the PyTorch operations into an FX graph. This FX graph captures the operations performed during the function’s execution.
