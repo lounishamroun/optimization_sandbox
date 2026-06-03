@@ -12,7 +12,7 @@ With logits : logits=torch.randn(1000,1024,100).
 
 We have to feed bigger logits, since eager mode PyTorch already has a built in optimization.
 
-## Results
+### Results
 
 By increasing the first dimension of our tensor from 1000 to 6000 *i.e:torch.randn(1000->6000,1024,100)* we get a small improvemement. 
 
@@ -31,7 +31,19 @@ Let's try to increase the number of repeated calls to the TorchDynamo-optimized 
          torch.randn([1000,torch.randint(1024,1025,[1]),100] #1000 samples | 1024 features | sequence length = 100 frames
 ....
 
-### Observation
+### Results
 
 Our optimized function is now only **3.49% slower** than our eager function.
 Optimized function (model) exec duration = 2386.756332999994 ms | Eager function exec duration = 2473.1667500000185 ms 
+
+If we increase both variables 'number of function invocation + tensor size ':
+
+*for _ in range(50->100):* **Changing invocation number**
+   optimized_model(model=model_instance,x=(
+         torch.randn([1000,torch.randint(1024,1025,[1]),100] #1000 samples | 1024 features | sequence length = 100 frames
+....
+....
+*logits=torch.randn(6000->10000,1024,100)*
+....
+
+Our optimized function seem to have a bottleneck, it's 4.96% slower than eager mode, which is worse than before.
